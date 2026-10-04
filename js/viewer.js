@@ -42,7 +42,18 @@ export class Viewer {
       <div class="labels"></div>
       <div class="sel-box" hidden></div>
       <div class="badge" hidden><i></i><span></span></div>
-      <div class="placeholder"><div class="ph-icon">⇪</div><div class="ph-text"></div></div>
+      <div class="placeholder">
+        <div class="ph-card">
+          <div class="ph-icon">📂</div>
+          <div class="ph-title">Chưa mở bản vẽ PDF</div>
+          <div class="ph-text">Kéo thả file PDF vào đây hoặc bấm chọn file:</div>
+          <div class="ph-actions">
+            <button type="button" class="btn primary ph-btn-v1">📂 Mở PDF 1 (Ver1)</button>
+            <button type="button" class="btn ph-btn-v2">📂 Mở PDF 2 (Ver2)</button>
+          </div>
+          <div class="ph-hint">💡 Phím tắt: <b>Ctrl + O</b> (PDF 1) · <b>Ctrl + Shift + O</b> (PDF 2)</div>
+        </div>
+      </div>
       <div class="spinner" hidden></div>`;
     const q = s => this.el.querySelector(s);
     this.stage = q('.stage'); this.shadow = q('.shadow');
@@ -50,6 +61,14 @@ export class Viewer {
     this.svgHl = q('svg.hl-layer'); this.svgOv = q('svg.ov-layer');
     this.labelsEl = q('.labels'); this.selBox = q('.sel-box');
     this.badge = q('.badge'); this.ph = q('.placeholder'); this.spinner = q('.spinner');
+    this.ph.querySelector('.ph-btn-v1')?.addEventListener('click', e => {
+      e.stopPropagation();
+      (window.app || window.pdfqa)?.openDoc?.(1);
+    });
+    this.ph.querySelector('.ph-btn-v2')?.addEventListener('click', e => {
+      e.stopPropagation();
+      (window.app || window.pdfqa)?.openDoc?.(2);
+    });
     this._lastSize = [this.el.clientWidth, this.el.clientHeight];
     new ResizeObserver(() => this._onResize()).observe(this.el);
   }
