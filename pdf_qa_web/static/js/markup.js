@@ -97,6 +97,8 @@ export default function install(app) {
       }
     }
     return null;
+  }
+
   function hitTestZone(view, [x, y]) {
     const src = S.viewSrc.get(view) ?? 1;
     for (let i = S.zones.length - 1; i >= 0; i--) {
