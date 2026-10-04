@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: jjn-pdf-qa
+    runtime: python
+    buildCommand: pip install -r requirements-web.txt
+    startCommand: python -m pdf_qa_web --host 0.0.0.0 --port $PORT --no-browser
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9

@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    JNN PDF – PDF Review & Construction Drawing Tool (prototype)
+    Target: .NET 8 LTS, WPF. Windows 10 SDK TFM gives access to Windows.Media.Ocr (offline OCR).
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <AssemblyName>JnnPdf</AssemblyName>
+    <RootNamespace>JnnPdf</RootNamespace>
+    <Product>JNN PDF</Product>
+    <Version>0.1.0</Version>
+    <!-- App icon (exe, taskbar, title bars). Generated from Logo_JNN.png -->
+    <ApplicationIcon>Logo_JNN.ico</ApplicationIcon>
+    <NoWarn>$(NoWarn);CA1416;NU1701</NoWarn>
+    <!-- "build" = published, ready-to-run app (dotnet publish ... -o build); not part of the source -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);build/**;publish/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Logo: window icon + welcome screen -->
+    <Resource Include="Logo_JNN.png" />
+    <Resource Include="Logo_JNN.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- PDF rendering + text extraction (Google PDFium, native binaries included) -->
+    <PackageReference Include="PDFiumCore" Version="156.0.8076" />
+    <!-- PDF writing: export markups, crop, merge, page operations, PDF report -->
+    <PackageReference Include="PDFsharp" Version="6.2.4" />
+    <!-- Excel export -->
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
+    <!-- Local database: recent files + settings -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+
+</Project>

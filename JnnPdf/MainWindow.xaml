@@ -1,0 +1,836 @@
+<Window x:Class="JnnPdf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:JnnPdf"
+        Title="{Binding WindowTitle}" Width="1500" Height="920" WindowState="Maximized"
+        Icon="pack://application:,,,/Logo_JNN.ico"
+        Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}"
+        FontFamily="Segoe UI" FontSize="12" UseLayoutRounding="True" AllowDrop="True">
+    <!--
+        MainWindow.xaml – USER INTERFACE
+        Menu / Toolbar / Left (thumbnails, bookmarks, search, info) / PDF canvas /
+        Right (properties, read data, zones, compare-overlay, takeoff, settings) /
+        Bottom (markups list, QA/QC issues, drawing register, zone results, changes) / Status bar.
+    -->
+    <Window.InputBindings>
+        <KeyBinding Key="O" Modifiers="Ctrl" Command="{Binding OpenPdfCommand}"/>
+        <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveCommand}"/>
+        <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{Binding SaveAsCommand}"/>
+        <KeyBinding Key="Z" Modifiers="Ctrl" Command="{Binding UndoCommand}"/>
+        <KeyBinding Key="Y" Modifiers="Ctrl" Command="{Binding RedoCommand}"/>
+        <KeyBinding Key="P" Modifiers="Ctrl" Command="{Binding PrintCommand}"/>
+        <KeyBinding Key="D" Modifiers="Ctrl" Command="{Binding DuplicateMarkupCommand}"/>
+        <KeyBinding Key="OemPlus" Modifiers="Ctrl" Command="{Binding ViewCommand}" CommandParameter="zoomin"/>
+        <KeyBinding Key="OemMinus" Modifiers="Ctrl" Command="{Binding ViewCommand}" CommandParameter="zoomout"/>
+        <KeyBinding Key="D0" Modifiers="Ctrl" Command="{Binding ViewCommand}" CommandParameter="fitpage"/>
+    </Window.InputBindings>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- =============================== MENU =============================== -->
+        <Menu Grid.Row="0" Padding="4,2">
+            <MenuItem Header="_File">
+                <MenuItem Header="New" Command="{Binding NewCommand}"/>
+                <MenuItem Header="Open PDF…" Command="{Binding OpenPdfCommand}" InputGestureText="Ctrl+O"/>
+                <MenuItem Header="Open Project…" Command="{Binding OpenProjectCommand}"/>
+                <MenuItem Header="Open Recent" ItemsSource="{Binding RecentFiles}">
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="MenuItem">
+                            <Setter Property="Foreground" Value="#1F2328"/>
+                            <Setter Property="Header" Value="{Binding}"/>
+                            <Setter Property="Command" Value="{Binding DataContext.OpenRecentCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            <Setter Property="CommandParameter" Value="{Binding}"/>
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
+                <MenuItem Header="Create Project…" Command="{Binding CreateProjectCommand}"/>
+                <Separator/>
+                <MenuItem Header="Save" Command="{Binding SaveCommand}" InputGestureText="Ctrl+S"/>
+                <MenuItem Header="Save As…" Command="{Binding SaveAsCommand}" InputGestureText="Ctrl+Shift+S"/>
+                <MenuItem Header="Save PDF As… (after page edits)" Command="{Binding SavePdfAsCommand}"/>
+                <MenuItem Header="Close" Command="{Binding CloseCommand}"/>
+                <Separator/>
+                <MenuItem Header="Export">
+                    <MenuItem Header="PDF with markups (flattened)…" Command="{Binding ExportFlattenedPdfCommand}"/>
+                    <MenuItem Header="Current page → PNG/JPG…" Command="{Binding ExportPngCommand}"/>
+                    <MenuItem Header="Searchable PDF (sau OCR)…" Command="{Binding ExportSearchableCommand}"/>
+                    <MenuItem Header="Markups → Excel…" Command="{Binding ExportMarkupsExcelCommand}"/>
+                    <MenuItem Header="Markups → CSV…" Command="{Binding ExportMarkupsCsvCommand}"/>
+                </MenuItem>
+                <MenuItem Header="Print…" Command="{Binding PrintCommand}" InputGestureText="Ctrl+P"/>
+                <Separator/>
+                <MenuItem Header="Exit" Click="Exit_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Edit">
+                <MenuItem Header="Undo" Command="{Binding UndoCommand}" InputGestureText="Ctrl+Z"/>
+                <MenuItem Header="Redo" Command="{Binding RedoCommand}" InputGestureText="Ctrl+Y"/>
+                <Separator/>
+                <MenuItem Header="Delete markup" Command="{Binding DeleteMarkupCommand}" InputGestureText="Del"/>
+                <MenuItem Header="Duplicate markup" Command="{Binding DuplicateMarkupCommand}" InputGestureText="Ctrl+D"/>
+                <Separator/>
+                <MenuItem Header="Select tool" Command="{Binding ToolCommand}" CommandParameter="Select" InputGestureText="V"/>
+                <MenuItem Header="Select text (copy)" Command="{Binding ToolCommand}" CommandParameter="TextSelect"/>
+                <MenuItem Header="Find…" Click="FocusSearch_Click" InputGestureText="Ctrl+F"/>
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="Zoom In" Command="{Binding ViewCommand}" CommandParameter="zoomin" InputGestureText="Ctrl++"/>
+                <MenuItem Header="Zoom Out" Command="{Binding ViewCommand}" CommandParameter="zoomout" InputGestureText="Ctrl+-"/>
+                <MenuItem Header="Fit Page" Command="{Binding ViewCommand}" CommandParameter="fitpage" InputGestureText="Ctrl+0"/>
+                <MenuItem Header="Fit Width" Command="{Binding ViewCommand}" CommandParameter="fitwidth"/>
+                <MenuItem Header="Actual Size (100%)" Command="{Binding ViewCommand}" CommandParameter="actual"/>
+                <MenuItem Header="Zoom box" Command="{Binding ToolCommand}" CommandParameter="ZoomBox" InputGestureText="Z"/>
+                <Separator/>
+                <MenuItem Header="Rotate view ⟲" Command="{Binding ViewCommand}" CommandParameter="rotl"/>
+                <MenuItem Header="Rotate view ⟳" Command="{Binding ViewCommand}" CommandParameter="rotr"/>
+                <MenuItem Header="Previous page" Command="{Binding ViewCommand}" CommandParameter="prev" InputGestureText="PgUp"/>
+                <MenuItem Header="Next page" Command="{Binding ViewCommand}" CommandParameter="next" InputGestureText="PgDn"/>
+                <MenuItem Header="Go to page…" Command="{Binding ViewCommand}" CommandParameter="goto" InputGestureText="Ctrl+G"/>
+                <Separator/>
+                <MenuItem Header="Dark theme" IsCheckable="True" IsChecked="{Binding IsDark}"/>
+                <MenuItem Header="Show check zones" IsCheckable="True" IsChecked="True" Click="ToggleZones_Click"/>
+                <MenuItem Header="Show existing PDF annotations" IsCheckable="True" IsChecked="True" Click="ToggleAnnots_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Markup">
+                <MenuItem Header="Text Box" Command="{Binding ToolCommand}" CommandParameter="TextBox" InputGestureText="T"/>
+                <MenuItem Header="Callout" Command="{Binding ToolCommand}" CommandParameter="Callout"/>
+                <MenuItem Header="Typewriter" Command="{Binding ToolCommand}" CommandParameter="Typewriter"/>
+                <MenuItem Header="Label" Command="{Binding ToolCommand}" CommandParameter="Label"/>
+                <Separator/>
+                <MenuItem Header="Line" Command="{Binding ToolCommand}" CommandParameter="Line"/>
+                <MenuItem Header="Arrow" Command="{Binding ToolCommand}" CommandParameter="Arrow"/>
+                <MenuItem Header="Polyline" Command="{Binding ToolCommand}" CommandParameter="Polyline"/>
+                <MenuItem Header="Rectangle" Command="{Binding ToolCommand}" CommandParameter="Rectangle" InputGestureText="R"/>
+                <MenuItem Header="Circle / Ellipse" Command="{Binding ToolCommand}" CommandParameter="Ellipse"/>
+                <MenuItem Header="Cloud" Command="{Binding ToolCommand}" CommandParameter="Cloud" InputGestureText="C"/>
+                <MenuItem Header="Polygon" Command="{Binding ToolCommand}" CommandParameter="Polygon"/>
+                <Separator/>
+                <MenuItem Header="Pen (freehand)" Command="{Binding ToolCommand}" CommandParameter="Pen"/>
+                <MenuItem Header="Highlighter (freehand)" Command="{Binding ToolCommand}" CommandParameter="Highlighter"/>
+                <MenuItem Header="Highlight (snap text)" Command="{Binding ToolCommand}" CommandParameter="Highlight"/>
+                <Separator/>
+                <MenuItem Header="Construction tag" ItemsSource="{Binding TagList}">
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="MenuItem">
+                            <Setter Property="Foreground" Value="#1F2328"/>
+                            <Setter Property="Header" Value="{Binding}"/>
+                            <Setter Property="Command" Value="{Binding DataContext.SetTagCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            <Setter Property="CommandParameter" Value="{Binding}"/>
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
+                <MenuItem Header="Stamp" ItemsSource="{Binding StampList}">
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="MenuItem">
+                            <Setter Property="Foreground" Value="#1F2328"/>
+                            <Setter Property="Header" Value="{Binding}"/>
+                            <Setter Property="Command" Value="{Binding DataContext.SetStampCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            <Setter Property="CommandParameter" Value="{Binding}"/>
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
+                <MenuItem Header="Hyperlink" Command="{Binding ToolCommand}" CommandParameter="Hyperlink"/>
+            </MenuItem>
+            <MenuItem Header="Me_asure">
+                <MenuItem Header="Length" Command="{Binding ToolCommand}" CommandParameter="Length" InputGestureText="M"/>
+                <MenuItem Header="PolyLength" Command="{Binding ToolCommand}" CommandParameter="PolyLength"/>
+                <MenuItem Header="Area" Command="{Binding ToolCommand}" CommandParameter="Area"/>
+                <MenuItem Header="Perimeter" Command="{Binding ToolCommand}" CommandParameter="Perimeter"/>
+                <MenuItem Header="Count" Command="{Binding ToolCommand}" CommandParameter="Count"/>
+                <MenuItem Header="Angle" Command="{Binding ToolCommand}" CommandParameter="Angle"/>
+                <Separator/>
+                <MenuItem Header="Calibrate (draw a known length)" Command="{Binding ToolCommand}" CommandParameter="Calibrate"/>
+                <MenuItem Header="Set Scale…" Command="{Binding SetScaleCommand}"/>
+                <MenuItem Header="Takeoff mode (assign category to new measurements)" IsCheckable="True" IsChecked="{Binding TakeoffActive}"/>
+                <MenuItem Header="Export takeoff → Excel…" Command="{Binding ExportTakeoffCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Review">
+                <MenuItem Header="Open PDF 2 (revision / overlay)…" Command="{Binding OpenCompareCommand}"/>
+                <MenuItem Header="Compare current page" Command="{Binding RunComparePageCommand}"/>
+                <MenuItem Header="Compare all pages" Command="{Binding RunCompareCommand}"/>
+                <MenuItem Header="Next change" Command="{Binding NextChangeCommand}" InputGestureText="F3"/>
+                <MenuItem Header="Previous change" Command="{Binding PrevChangeCommand}" InputGestureText="Shift+F3"/>
+                <MenuItem Header="Export comparison PDF / Excel…" Command="{Binding ExportComparePdfCommand}"/>
+                <MenuItem Header="Close PDF 2" Command="{Binding CloseCompareCommand}"/>
+                <Separator/>
+                <MenuItem Header="Read region data" Command="{Binding ToolCommand}" CommandParameter="RegionRead"/>
+                <MenuItem Header="Create check zone" Command="{Binding ToolCommand}" CommandParameter="Zone"/>
+                <MenuItem Header="Run zone check" Command="{Binding RunZonesCommand}"/>
+                <MenuItem Header="Crop region → PDF / PNG" Command="{Binding ToolCommand}" CommandParameter="Crop"/>
+                <Separator/>
+                <MenuItem Header="QA/QC: New issue" Command="{Binding NewIssueCommand}"/>
+                <MenuItem Header="QA/QC: Issue pin (click on drawing)" Command="{Binding ToolCommand}" CommandParameter="IssuePin"/>
+                <MenuItem Header="QA/QC: Issue from selected markup" Command="{Binding IssueFromMarkupCommand}"/>
+                <MenuItem Header="Drawing register: read from PDF" Command="{Binding DetectRegisterCommand}"/>
+                <Separator/>
+                <MenuItem Header="OCR current page" Command="{Binding OcrPageCommand}"/>
+                <MenuItem Header="OCR all pages" Command="{Binding OcrAllCommand}"/>
+                <MenuItem Header="Batch processing…" Command="{Binding BatchCommand}"/>
+            </MenuItem>
+            <MenuItem Header="E_xport">
+                <MenuItem Header="Report (PDF / Excel / CSV)…" Command="{Binding ReportCommand}"/>
+                <Separator/>
+                <MenuItem Header="Markups → Excel…" Command="{Binding ExportMarkupsExcelCommand}"/>
+                <MenuItem Header="Markups → CSV…" Command="{Binding ExportMarkupsCsvCommand}"/>
+                <MenuItem Header="Takeoff → Excel…" Command="{Binding ExportTakeoffCommand}"/>
+                <MenuItem Header="QA/QC Issues → Excel…" Command="{Binding ExportIssuesCommand}"/>
+                <MenuItem Header="Drawing register → Excel…" Command="{Binding ExportRegisterCommand}" CommandParameter="xlsx"/>
+                <MenuItem Header="Drawing register → CSV…" Command="{Binding ExportRegisterCommand}" CommandParameter="csv"/>
+                <MenuItem Header="Zone check results → Excel…" Command="{Binding ExportZoneResultsCommand}"/>
+                <Separator/>
+                <MenuItem Header="PDF with markups (flattened)…" Command="{Binding ExportFlattenedPdfCommand}"/>
+                <MenuItem Header="Current page → PNG/JPG…" Command="{Binding ExportPngCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="Keyboard shortcuts" Click="Shortcuts_Click"/>
+                <MenuItem Header="Open log folder" Click="OpenLogs_Click"/>
+                <MenuItem Header="About JNN PDF" Click="About_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- =============================== TOOLBAR =============================== -->
+        <Border Grid.Row="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,1">
+            <WrapPanel Margin="6,3">
+                <!-- file -->
+                <Button Style="{StaticResource IconButton}" Content="&#xE8E5;" ToolTip="Open PDF (Ctrl+O)" Command="{Binding OpenPdfCommand}"/>
+                <Button Style="{StaticResource IconButton}" Content="&#xE74E;" ToolTip="Save project (Ctrl+S)" Command="{Binding SaveCommand}"/>
+                <Button Style="{StaticResource IconButton}" Content="&#xE749;" ToolTip="Print (Ctrl+P)" Command="{Binding PrintCommand}"/>
+                <Button Style="{StaticResource IconButton}" Content="&#xE7A7;" ToolTip="Undo (Ctrl+Z)" Command="{Binding UndoCommand}"/>
+                <Button Style="{StaticResource IconButton}" Content="&#xE7A6;" ToolTip="Redo (Ctrl+Y)" Command="{Binding RedoCommand}"/>
+                <Border Style="{StaticResource ToolSep}"/>
+                <!-- navigation -->
+                <Button Style="{StaticResource IconButton}" Content="&#xE76B;" ToolTip="Previous page (PgUp)" Command="{Binding ViewCommand}" CommandParameter="prev"/>
+                <TextBox x:Name="PageBox" Width="44" Height="24" HorizontalContentAlignment="Center" ToolTip="Go to page (Enter)" KeyDown="PageBox_KeyDown" VerticalAlignment="Center"/>
+                <TextBlock x:Name="PageCountText" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource SubTextBrush}" Text="/ –"/>
+                <Button Style="{StaticResource IconButton}" Content="&#xE76C;" ToolTip="Next page (PgDn)" Command="{Binding ViewCommand}" CommandParameter="next"/>
+                <Border Style="{StaticResource ToolSep}"/>
+                <!-- zoom -->
+                <Button Style="{StaticResource IconButton}" Content="&#xE71F;" ToolTip="Zoom out (Ctrl+-)" Command="{Binding ViewCommand}" CommandParameter="zoomout"/>
+                <ComboBox x:Name="ZoomBox" Width="74" Height="24" IsEditable="True" VerticalAlignment="Center" ToolTip="Zoom %" KeyDown="ZoomBox_KeyDown" SelectionChanged="ZoomBox_SelectionChanged">
+                    <ComboBoxItem>25%</ComboBoxItem><ComboBoxItem>50%</ComboBoxItem><ComboBoxItem>75%</ComboBoxItem>
+                    <ComboBoxItem>100%</ComboBoxItem><ComboBoxItem>150%</ComboBoxItem><ComboBoxItem>200%</ComboBoxItem>
+                    <ComboBoxItem>400%</ComboBoxItem><ComboBoxItem>800%</ComboBoxItem>
+                </ComboBox>
+                <Button Style="{StaticResource IconButton}" Content="&#xE8A3;" ToolTip="Zoom in (Ctrl++)" Command="{Binding ViewCommand}" CommandParameter="zoomin"/>
+                <Button Style="{StaticResource IconButton}" Content="&#xE9A6;" ToolTip="Fit page (Ctrl+0)" Command="{Binding ViewCommand}" CommandParameter="fitpage"/>
+                <Button Style="{StaticResource IconButton}" Content="&#xE740;" ToolTip="Fit width" Command="{Binding ViewCommand}" CommandParameter="fitwidth"/>
+                <Button Style="{StaticResource IconButton}" Content="&#xE7AD;" ToolTip="Rotate view 90°" Command="{Binding ViewCommand}" CommandParameter="rotr"/>
+                <Button Style="{StaticResource IconButton}" Content="&#xE721;" ToolTip="Search text (Ctrl+F)" Click="FocusSearch_Click"/>
+                <Border Style="{StaticResource ToolSep}"/>
+                <!-- style -->
+                <TextBlock Text="Color" VerticalAlignment="Center" Margin="2,0,4,0" Foreground="{DynamicResource SubTextBrush}"/>
+                <ItemsControl ItemsSource="{Binding Palette}" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Width="18" Height="18" Margin="1" Padding="0" Background="{Binding}" ToolTip="{Binding}" Click="Palette_Click" Tag="{Binding}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border Width="22" Height="22" CornerRadius="11" Margin="6,0" BorderThickness="2" BorderBrush="{DynamicResource TextBrush}" Background="{Binding CurrentColor}" VerticalAlignment="Center" ToolTip="Current color"/>
+                <TextBlock Text="Width" VerticalAlignment="Center" Margin="6,0,4,0" Foreground="{DynamicResource SubTextBrush}"/>
+                <ComboBox Width="52" Height="24" IsEditable="True" Text="{Binding CurrentLineWidth, UpdateSourceTrigger=LostFocus}" VerticalAlignment="Center" ToolTip="Line width (pt)">
+                    <ComboBoxItem>0.5</ComboBoxItem><ComboBoxItem>1</ComboBoxItem><ComboBoxItem>2</ComboBoxItem><ComboBoxItem>3</ComboBoxItem><ComboBoxItem>5</ComboBoxItem><ComboBoxItem>8</ComboBoxItem>
+                </ComboBox>
+                <TextBlock Text="Font" VerticalAlignment="Center" Margin="6,0,4,0" Foreground="{DynamicResource SubTextBrush}"/>
+                <ComboBox Width="52" Height="24" IsEditable="True" Text="{Binding CurrentFontSize, UpdateSourceTrigger=LostFocus}" VerticalAlignment="Center" ToolTip="Font size (pt)">
+                    <ComboBoxItem>8</ComboBoxItem><ComboBoxItem>10</ComboBoxItem><ComboBoxItem>12</ComboBoxItem><ComboBoxItem>16</ComboBoxItem><ComboBoxItem>24</ComboBoxItem><ComboBoxItem>36</ComboBoxItem>
+                </ComboBox>
+                <Border Style="{StaticResource ToolSep}"/>
+                <Button Content="Scale" Height="26" Margin="2,0" Command="{Binding SetScaleCommand}" ToolTip="Set scale (1:100, custom…)" VerticalAlignment="Center"/>
+                <Button Content="PDF 2…" Height="26" Margin="2,0" Command="{Binding OpenCompareCommand}" ToolTip="Open PDF 2 to compare / overlay" VerticalAlignment="Center"/>
+                <Button Content="Report" Height="26" Margin="2,0" Command="{Binding ReportCommand}" ToolTip="Export report PDF / Excel / CSV" VerticalAlignment="Center"/>
+                <Button Content="◐ Theme" Height="26" Margin="2,0" Command="{Binding ToggleThemeCommand}" ToolTip="Dark / Light theme" VerticalAlignment="Center"/>
+            </WrapPanel>
+        </Border>
+
+        <!-- =============================== MAIN AREA =============================== -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="230" MinHeight="60"/>
+            </Grid.RowDefinitions>
+
+            <!-- tools strip -->
+            <Border Grid.Row="0" Background="{DynamicResource PanelAltBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
+                <WrapPanel Margin="6,2">
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="↖" Content="Select" ToolTip="Select / move / resize (V)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Select}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="✋" Content="Pan" ToolTip="Pan (hold Space)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Pan}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="⊕" Content="Zoom" ToolTip="Zoom box (Z)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=ZoomBox}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="Ⅰ" Content="Text sel" ToolTip="Select text and copy" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=TextSelect}"/>
+                    <Border Style="{StaticResource ToolSep}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="🗏" Content="Text" ToolTip="Text box (T)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=TextBox}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="💬" Content="Callout" ToolTip="Callout: click the arrow tip, then the box position" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Callout}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="Ꭲ" Content="Typewr." ToolTip="Typewriter" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Typewriter}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="🏷" Content="Label" ToolTip="Label" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Label}"/>
+                    <Border Style="{StaticResource ToolSep}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="╱" Content="Line" ToolTip="Line (Shift = 0/45/90°)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Line}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="➔" Content="Arrow" ToolTip="Arrow" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Arrow}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="⌇" Content="Polyline" ToolTip="Polyline (double-click / Enter to finish)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Polyline}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="▭" Content="Rect" ToolTip="Rectangle (R)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Rectangle}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="◯" Content="Circle" ToolTip="Circle / Ellipse" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Ellipse}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="☁" Content="Cloud" ToolTip="Revision cloud (C)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Cloud}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="⬠" Content="Polygon" ToolTip="Polygon (double-click / Enter to close)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Polygon}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="✎" Content="Pen" ToolTip="Pen (freehand)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Pen}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="🖍" Content="Marker" ToolTip="Highlighter (freehand)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Highlighter}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="▆" Content="Highlight" ToolTip="Highlight – snaps to text lines" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Highlight}"/>
+                    <Border Style="{StaticResource ToolSep}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="⚑" Content="{Binding CurrentTag}" ToolTip="Construction tag (choose the type in menu Markup > Construction tag)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Tag}"/>
+                    <ComboBox Width="22" Height="44" ItemsSource="{Binding TagList}" SelectedItem="{Binding CurrentTag}" ToolTip="Choose tag" VerticalAlignment="Center" SelectionChanged="TagCombo_Changed"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="✪" Content="Stamp" ToolTip="{Binding CurrentStamp}" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Stamp}"/>
+                    <ComboBox Width="22" Height="44" ItemsSource="{Binding StampList}" SelectedItem="{Binding CurrentStamp}" ToolTip="Choose stamp" VerticalAlignment="Center" SelectionChanged="StampCombo_Changed"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="❗" Content="Issue" ToolTip="QA/QC issue pin" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=IssuePin}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="🔗" Content="Link" ToolTip="Hyperlink area → page / sheet / URL / file" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Hyperlink}"/>
+                    <Border Style="{StaticResource ToolSep}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="↔" Content="Length" ToolTip="Length (M)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Length}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="⤳" Content="PolyLen" ToolTip="PolyLength" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=PolyLength}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="◩" Content="Area" ToolTip="Area (double-click / Enter to close)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Area}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="⬡" Content="Perim." ToolTip="Perimeter" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Perimeter}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="⦿" Content="Count" ToolTip="Count (Enter/Esc to finish the group)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Count}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="∠" Content="Angle" ToolTip="Angle (3 click)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Angle}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="📐" Content="Calibrate" ToolTip="Calibrate scale from a known length" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Calibrate}"/>
+                    <Border Style="{StaticResource ToolSep}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="⌕" Content="Read data" ToolTip="Select a region → read text (compared with PDF 2 if open)" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=RegionRead}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="⬚" Content="Check zone" ToolTip="Define a check zone – applies to all pages / batch" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Zone}"/>
+                    <RadioButton Style="{StaticResource ToolButton}" Tag="✂" Content="Crop" ToolTip="Crop region → vector PDF / PNG" IsChecked="{Binding CurrentTool, Converter={StaticResource EnumBool}, ConverterParameter=Crop}"/>
+                </WrapPanel>
+            </Border>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="230" MinWidth="120"/>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition Width="310" MinWidth="160"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ============ LEFT PANEL ============ -->
+                <TabControl Grid.Column="0" x:Name="LeftTabs">
+                    <TabItem Header="Pages">
+                        <ListBox x:Name="ThumbList" ItemsSource="{Binding Thumbnails}" VirtualizingPanel.IsVirtualizing="True"
+                                 VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 SelectionChanged="ThumbList_SelectionChanged" PreviewMouseLeftButtonDown="Thumb_MouseDown"
+                                 PreviewMouseMove="Thumb_MouseMove" Drop="Thumb_Drop" AllowDrop="True">
+                            <ListBox.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Rotate page 90° ⟳" Click="PageRotate_Click"/>
+                                    <MenuItem Header="Duplicate page" Click="PageDuplicate_Click"/>
+                                    <MenuItem Header="Delete page" Click="PageDelete_Click"/>
+                                </ContextMenu>
+                            </ListBox.ContextMenu>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="4,6" HorizontalAlignment="Center" Width="180">
+                                        <Border Background="White" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" HorizontalAlignment="Center" MinHeight="60" MinWidth="80">
+                                            <Image Source="{Binding Image}" MaxWidth="170" MaxHeight="170" Stretch="Uniform"/>
+                                        </Border>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
+                                            <TextBlock Text="{Binding Label}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Sheet}" Margin="6,0,0,0" Foreground="{DynamicResource SubTextBrush}" MaxWidth="110"/>
+                                            <TextBlock Text="{Binding Revision}" Margin="6,0,0,0" Foreground="{DynamicResource AccentBrush}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </TabItem>
+                    <TabItem Header="Bookmarks">
+                        <TreeView ItemsSource="{Binding Bookmarks}" SelectedItemChanged="Bookmarks_SelectedItemChanged">
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                    <TextBlock Text="{Binding Title}" ToolTip="{Binding Title}"/>
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+                    </TabItem>
+                    <TabItem Header="Search" x:Name="SearchTab">
+                        <DockPanel Margin="6">
+                            <StackPanel DockPanel.Dock="Top">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="&#xE721;" FontFamily="{StaticResource IconFont}" Margin="4,0,0,0" Command="{Binding SearchCommand}" ToolTip="Search"/>
+                                    <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" KeyDown="SearchBox_KeyDown" ToolTip="e.g. 200x400, SECTION A-A"/>
+                                </DockPanel>
+                                <CheckBox Content="Regex / Query" IsChecked="{Binding SearchRegex}" Margin="0,6,0,4" ToolTip="e.g. ^\d{3}x\d{3}$ or (B|C)\d+"/>
+                                <TextBlock Text="{Binding SearchHits.Count, StringFormat={}{0} results}" Foreground="{DynamicResource SubTextBrush}" Margin="0,0,0,4"/>
+                            </StackPanel>
+                            <ListBox ItemsSource="{Binding SearchHits}" DisplayMemberPath="Display" MouseDoubleClick="SearchHits_DoubleClick" SelectionChanged="SearchHits_SelectionChanged"/>
+                        </DockPanel>
+                    </TabItem>
+                    <TabItem Header="Info">
+                        <ItemsControl ItemsSource="{Binding DocInfo}" Margin="8">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,6">
+                                        <TextBlock Text="{Binding Key}" Foreground="{DynamicResource SubTextBrush}" FontSize="10.5"/>
+                                        <TextBlock Text="{Binding Value}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </TabItem>
+                </TabControl>
+
+                <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch"/>
+
+                <!-- ============ CENTER: CANVAS + WELCOME ============ -->
+                <Grid Grid.Column="2">
+                    <local:PdfCanvas x:Name="Canvas"/>
+                    <!-- Welcome screen -->
+                    <Grid Visibility="{Binding HasDocument, Converter={StaticResource InvBoolVis}}">
+                        <Grid.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#1B2432" Offset="0"/>
+                                <GradientStop Color="#16202B" Offset="0.6"/>
+                                <GradientStop Color="#0F2A44" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Grid.Background>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="620">
+                            <Image Source="pack://application:,,,/Logo_JNN.png" Width="150" Height="150" HorizontalAlignment="Center" Margin="0,0,0,10"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <TextBlock Text="JNN PDF" FontSize="54" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                            <TextBlock Text="PDF Review &amp; Construction Drawing Tool" FontSize="17" Foreground="#9FB7D4" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBlock Text="Markup · Measurement · Takeoff · Compare · Overlay · QA/QC · Region data · Report" FontSize="12" Foreground="#6F8AA8" HorizontalAlignment="Center" Margin="0,0,0,28"/>
+                            <UniformGrid Columns="3" Margin="0,0,0,24">
+                                <Button Style="{StaticResource AccentButton}" Height="64" Margin="6" Command="{Binding OpenPdfCommand}">
+                                    <StackPanel><TextBlock Text="&#xE8E5;" FontFamily="{StaticResource IconFont}" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="OPEN PDF" FontWeight="Bold" Margin="0,4,0,0"/></StackPanel>
+                                </Button>
+                                <Button Height="64" Margin="6" Command="{Binding CreateProjectCommand}" Background="#22324A" Foreground="White" BorderBrush="#35507A">
+                                    <StackPanel><TextBlock Text="&#xE710;" FontFamily="{StaticResource IconFont}" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="CREATE PROJECT" FontWeight="Bold" Margin="0,4,0,0"/></StackPanel>
+                                </Button>
+                                <Button Height="64" Margin="6" Command="{Binding OpenProjectCommand}" Background="#22324A" Foreground="White" BorderBrush="#35507A">
+                                    <StackPanel><TextBlock Text="&#xE838;" FontFamily="{StaticResource IconFont}" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="OPEN PROJECT" FontWeight="Bold" Margin="0,4,0,0"/></StackPanel>
+                                </Button>
+                            </UniformGrid>
+                            <DockPanel Margin="6,0">
+                                <Button DockPanel.Dock="Right" Content="Clear" Padding="8,1" Background="Transparent" Foreground="#6F8AA8" BorderThickness="0" Command="{Binding ClearRecentCommand}"/>
+                                <TextBlock Text="RECENT PROJECTS / FILES" Foreground="#6F8AA8" FontWeight="SemiBold" FontSize="11"/>
+                            </DockPanel>
+                            <ItemsControl ItemsSource="{Binding RecentFiles}" Margin="6,6,6,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button HorizontalContentAlignment="Left" Margin="0,2" Padding="10,6" Background="#1A2636" BorderBrush="#26374F" Foreground="#D6E2F0"
+                                                Command="{Binding DataContext.OpenRecentCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" ToolTip="{Binding}">
+                                            <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" MaxWidth="560" HorizontalAlignment="Left"/>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="Drag &amp; drop a PDF / .jnnreview file onto the window to open it" Foreground="#4F6A88" HorizontalAlignment="Center" Margin="0,18,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                    <!-- compare quick bar -->
+                    <Border VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,8,0,0" Padding="8,4" CornerRadius="6"
+                            Background="#CC1E2633" Visibility="{Binding HasCompare, Converter={StaticResource BoolVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="PDF 1" Foreground="#FF6B6B" FontWeight="Bold" VerticalAlignment="Center"/>
+                            <TextBlock Text=" vs " Foreground="White" VerticalAlignment="Center"/>
+                            <TextBlock Text="PDF 2" Foreground="#5AA9FF" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <RadioButton Content="PDF 1" Foreground="White" Margin="4,0" IsChecked="{Binding OverlayMode, Converter={StaticResource EnumBool}, ConverterParameter=AOnly}"/>
+                            <RadioButton Content="PDF 2" Foreground="White" Margin="4,0" IsChecked="{Binding OverlayMode, Converter={StaticResource EnumBool}, ConverterParameter=BOnly}"/>
+                            <RadioButton Content="Color overlay" Foreground="White" Margin="4,0" IsChecked="{Binding OverlayMode, Converter={StaticResource EnumBool}, ConverterParameter=Colored}"/>
+                            <RadioButton Content="Transparent" Foreground="White" Margin="4,0" IsChecked="{Binding OverlayMode, Converter={StaticResource EnumBool}, ConverterParameter=Transparency}"/>
+                            <RadioButton Content="Blink" Foreground="White" Margin="4,0" IsChecked="{Binding OverlayMode, Converter={StaticResource EnumBool}, ConverterParameter=Blink}"/>
+                            <Button Content="◀" Margin="10,0,2,0" Padding="6,0" Command="{Binding PrevChangeCommand}" ToolTip="Previous change (Shift+F3)"/>
+                            <TextBlock Text="{Binding ChangeText}" Foreground="White" VerticalAlignment="Center" Margin="4,0"/>
+                            <Button Content="▶" Margin="2,0" Padding="6,0" Command="{Binding NextChangeCommand}" ToolTip="Next change (F3)"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <GridSplitter Grid.Column="3" HorizontalAlignment="Stretch"/>
+
+                <!-- ============ RIGHT PANEL ============ -->
+                <TabControl Grid.Column="4" x:Name="RightTabs">
+                    <!-- Properties -->
+                    <TabItem Header="Properties">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="10">
+                                <TextBlock Text="No markup selected. Use the Select tool and click a markup." TextWrapping="Wrap" Foreground="{DynamicResource SubTextBrush}"
+                                           Visibility="{Binding HasSelection, Converter={StaticResource InvBoolVis}}"/>
+                                <StackPanel DataContext="{Binding SelectedMarkup}" Visibility="{Binding Converter={StaticResource NullVis}}">
+                                    <TextBlock FontSize="15" FontWeight="SemiBold">
+                                        <Run Text="{Binding Type, Mode=OneWay}"/><Run Text="  #"/><Run Text="{Binding Id, Mode=OneWay}"/>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding ValueText}" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" FontSize="14" Margin="0,4,0,0"/>
+                                    <TextBlock Style="{StaticResource GroupLabel}" Text="SUBJECT"/>
+                                    <TextBox Text="{Binding Subject, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Style="{StaticResource GroupLabel}" Text="TEXT"/>
+                                    <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48"/>
+                                    <TextBlock Style="{StaticResource GroupLabel}" Text="COMMENT"/>
+                                    <TextBox Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48"/>
+                                    <TextBlock Style="{StaticResource GroupLabel}" Text="STATUS"/>
+                                    <ComboBox ItemsSource="{x:Static local:Lists.MarkupStatuses}" SelectedItem="{Binding Status}"/>
+                                    <Grid Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="8"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource GroupLabel}" Text="COLOR"/>
+                                            <DockPanel>
+                                                <Border DockPanel.Dock="Right" Width="22" Margin="4,0,0,0" CornerRadius="3" Background="{Binding Color}"/>
+                                                <TextBox Text="{Binding Color, UpdateSourceTrigger=LostFocus}"/>
+                                            </DockPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource GroupLabel}" Text="LINE WIDTH"/>
+                                            <TextBox Text="{Binding LineWidth, UpdateSourceTrigger=LostFocus}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="8"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource GroupLabel}" Text="FONT SIZE"/>
+                                            <TextBox Text="{Binding FontSize, UpdateSourceTrigger=LostFocus}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource GroupLabel}" Text="OPACITY"/>
+                                            <Slider Minimum="0.05" Maximum="1" Value="{Binding Opacity}" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource GroupLabel}" Text="FILL (#RRGGBB, empty = no fill)"/>
+                                    <TextBox Text="{Binding FillColor, UpdateSourceTrigger=LostFocus, TargetNullValue=''}"/>
+                                    <TextBlock Style="{StaticResource GroupLabel}" Text="TAKEOFF: CATEGORY / NAME / DEPTH"/>
+                                    <ComboBox IsEditable="True" ItemsSource="{x:Static local:Lists.TakeoffCategories}" Text="{Binding Category, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBox Text="{Binding TakeoffName, UpdateSourceTrigger=LostFocus}" Margin="0,4,0,0" ToolTip="Takeoff name"/>
+                                    <TextBox Text="{Binding Depth, UpdateSourceTrigger=LostFocus}" Margin="0,4,0,0" ToolTip="Depth / height (real units) → Area × Depth = Volume"/>
+                                    <TextBlock Style="{StaticResource GroupLabel}" Text="HYPERLINK (page / sheet:… / URL / file)"/>
+                                    <TextBox Text="{Binding LinkTarget, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Style="{StaticResource GroupLabel}" Text="AUTHOR / REVISION"/>
+                                    <TextBox Text="{Binding Author, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBox Text="{Binding Revision, UpdateSourceTrigger=LostFocus}" Margin="0,4,0,0"/>
+                                    <TextBlock Margin="0,10,0,0" Foreground="{DynamicResource SubTextBrush}" TextWrapping="Wrap">
+                                        <Run Text="Page "/><Run Text="{Binding PageNumber, Mode=OneWay}"/><Run Text="  ·  X "/><Run Text="{Binding X, Mode=OneWay}"/>
+                                        <Run Text=" Y "/><Run Text="{Binding Y, Mode=OneWay}"/><Run Text="  ·  W "/><Run Text="{Binding Width, Mode=OneWay}"/>
+                                        <Run Text=" H "/><Run Text="{Binding Height, Mode=OneWay}"/>
+                                        <LineBreak/><Run Text="Created "/><Run Text="{Binding CreatedDate, Mode=OneWay, StringFormat=dd/MM/yyyy HH:mm}"/>
+                                        <LineBreak/><Run Text="Modified "/><Run Text="{Binding ModifiedDate, Mode=OneWay, StringFormat=dd/MM/yyyy HH:mm}"/>
+                                    </TextBlock>
+                                </StackPanel>
+                                <WrapPanel Margin="0,12,0,0" Visibility="{Binding HasSelection, Converter={StaticResource BoolVis}}">
+                                    <Button Content="Zoom to" Margin="0,0,4,4" Command="{Binding ZoomToMarkupCommand}"/>
+                                    <Button Content="Duplicate" Margin="0,0,4,4" Command="{Binding DuplicateMarkupCommand}"/>
+                                    <Button Content="Create issue" Margin="0,0,4,4" Command="{Binding IssueFromMarkupCommand}"/>
+                                    <Button Content="Delete" Margin="0,0,4,4" Command="{Binding DeleteMarkupCommand}"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- Region read -->
+                    <TabItem Header="Read data" x:Name="RegionTab">
+                        <DockPanel Margin="10">
+                            <StackPanel DockPanel.Dock="Top">
+                                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SubTextBrush}" Text="Choose the 'Read data' tool and drag a region on the drawing. If PDF 2 is open, the same region is compared."/>
+                                <WrapPanel Margin="0,8,0,0">
+                                    <Button Content="⌕ Select region" Margin="0,0,4,0" Command="{Binding ToolCommand}" CommandParameter="RegionRead"/>
+                                    <Button Content="Copy" Command="{Binding CopyRegionCommand}"/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource GroupLabel}" Text="RESULT / DIFFERENCES"/>
+                                <TextBox Text="{Binding RegionDiff, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="120" VerticalScrollBarVisibility="Auto" Foreground="{DynamicResource AccentBrush}"/>
+                                <TextBlock Style="{StaticResource GroupLabel}" Text="PDF 1"/>
+                            </StackPanel>
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
+                                <TextBox Text="{Binding RegionTextA, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" FontFamily="Consolas"/>
+                                <TextBlock Grid.Row="1" Style="{StaticResource GroupLabel}" Text="PDF 2"/>
+                                <TextBox Grid.Row="2" Text="{Binding RegionTextB, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" FontFamily="Consolas"/>
+                            </Grid>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- Zones -->
+                    <TabItem Header="Zones">
+                        <DockPanel Margin="10">
+                            <StackPanel DockPanel.Dock="Top">
+                                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SubTextBrush}" Text="Create zones with the 'Check zone' tool, pick a rule, then run the check on all pages / PDF 2 / multiple files (Batch)."/>
+                                <WrapPanel Margin="0,8,0,8">
+                                    <Button Content="⬚ New zone" Margin="0,0,4,4" Command="{Binding ToolCommand}" CommandParameter="Zone"/>
+                                    <Button Content="▶ Run check" Margin="0,0,4,4" Command="{Binding RunZonesCommand}" Style="{StaticResource AccentButton}"/>
+                                    <Button Content="Batch (multiple files)…" Margin="0,0,4,4" Command="{Binding BatchCommand}"/>
+                                    <Button Content="Delete zone" Margin="0,0,4,4" Command="{Binding DeleteZoneCommand}"/>
+                                    <Button Content="Export results" Margin="0,0,4,4" Command="{Binding ExportZoneResultsCommand}"/>
+                                </WrapPanel>
+                            </StackPanel>
+                            <DataGrid ItemsSource="{Binding Zones}" SelectedItem="{Binding SelectedZone}" SelectionMode="Single">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                                    <DataGridComboBoxColumn Header="Rule" SelectedItemBinding="{Binding Rule}" ItemsSource="{x:Static local:Lists.ZoneRules}" Width="92"/>
+                                    <DataGridTextColumn Header="Expected" Binding="{Binding Expected, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                                    <DataGridCheckBoxColumn Header="All" Binding="{Binding AllPages, UpdateSourceTrigger=PropertyChanged}" Width="34"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- Compare / Overlay -->
+                    <TabItem Header="Compare">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="10">
+                                <WrapPanel>
+                                    <Button Content="Open PDF 2…" Margin="0,0,4,4" Command="{Binding OpenCompareCommand}" Style="{StaticResource AccentButton}"/>
+                                    <Button Content="Close PDF 2" Margin="0,0,4,4" Command="{Binding CloseCompareCommand}"/>
+                                </WrapPanel>
+                                <TextBlock Text="{Binding CompareFileName}" Foreground="{DynamicResource SubTextBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Style="{StaticResource GroupLabel}" Text="DISPLAY MODE"/>
+                                <RadioButton Content="PDF 1 only" Margin="0,2" IsChecked="{Binding OverlayMode, Converter={StaticResource EnumBool}, ConverterParameter=AOnly}"/>
+                                <RadioButton Content="PDF 2 only" Margin="0,2" IsChecked="{Binding OverlayMode, Converter={StaticResource EnumBool}, ConverterParameter=BOnly}"/>
+                                <RadioButton Content="PDF 1 + PDF 2 (red = PDF 1, blue = PDF 2)" Margin="0,2" IsChecked="{Binding OverlayMode, Converter={StaticResource EnumBool}, ConverterParameter=Colored}"/>
+                                <RadioButton Content="Transparency" Margin="0,2" IsChecked="{Binding OverlayMode, Converter={StaticResource EnumBool}, ConverterParameter=Transparency}"/>
+                                <RadioButton Content="Blink" Margin="0,2" IsChecked="{Binding OverlayMode, Converter={StaticResource EnumBool}, ConverterParameter=Blink}"/>
+                                <TextBlock Style="{StaticResource GroupLabel}" Text="{Binding OverlayOpacity, StringFormat=TRANSPARENCY PDF 2: {0:0}%}"/>
+                                <Slider Minimum="0" Maximum="100" Value="{Binding OverlayOpacity}"/>
+                                <TextBlock Style="{StaticResource GroupLabel}" Text="ALIGN PDF 2 (move / rotate / scale)"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                    <TextBlock Text="Move X" VerticalAlignment="Center"/><TextBox Grid.Column="1" Margin="0,2" Text="{Binding OverlayOffsetX, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="1" Text="Move Y" VerticalAlignment="Center"/><TextBox Grid.Row="1" Grid.Column="1" Margin="0,2" Text="{Binding OverlayOffsetY, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="2" Text="Rotate°" VerticalAlignment="Center"/><TextBox Grid.Row="2" Grid.Column="1" Margin="0,2" Text="{Binding OverlayRotation, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="3" Text="Scale" VerticalAlignment="Center"/><TextBox Grid.Row="3" Grid.Column="1" Margin="0,2" Text="{Binding OverlayScale, UpdateSourceTrigger=LostFocus}"/>
+                                </Grid>
+                                <TextBlock Text="Tip: Alt + arrow keys nudge PDF 2 (Shift = faster)." Foreground="{DynamicResource SubTextBrush}" FontSize="10.5" Margin="0,4,0,0"/>
+                                <Button Content="Reset align" HorizontalAlignment="Left" Margin="0,6,0,0" Command="{Binding ResetOverlayCommand}"/>
+                                <TextBlock Style="{StaticResource GroupLabel}" Text="COMPARE REVISION"/>
+                                <WrapPanel>
+                                    <Button Content="Compare this page" Margin="0,0,4,4" Command="{Binding RunComparePageCommand}"/>
+                                    <Button Content="Compare all" Margin="0,0,4,4" Command="{Binding RunCompareCommand}" Style="{StaticResource AccentButton}"/>
+                                </WrapPanel>
+                                <WrapPanel>
+                                    <Button Content="◀ Prev" Margin="0,0,4,4" Command="{Binding PrevChangeCommand}"/>
+                                    <Button Content="Next ▶" Margin="0,0,4,4" Command="{Binding NextChangeCommand}"/>
+                                    <Button Content="Export PDF/Excel" Margin="0,0,4,4" Command="{Binding ExportComparePdfCommand}"/>
+                                </WrapPanel>
+                                <TextBlock Text="{Binding ChangeText}" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                <TextBlock Text="Green = added · Red = removed · Orange = changed" Foreground="{DynamicResource SubTextBrush}" FontSize="10.5"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- Takeoff -->
+                    <TabItem Header="Takeoff">
+                        <DockPanel Margin="10">
+                            <StackPanel DockPanel.Dock="Top">
+                                <CheckBox Content="Takeoff mode – apply to new measurements:" IsChecked="{Binding TakeoffActive}" FontWeight="SemiBold"/>
+                                <TextBlock Style="{StaticResource GroupLabel}" Text="CATEGORY"/>
+                                <ComboBox IsEditable="True" ItemsSource="{Binding TakeoffCategories}" Text="{Binding TakeoffCategory, UpdateSourceTrigger=LostFocus}"/>
+                                <TextBlock Style="{StaticResource GroupLabel}" Text="NAME (vd: Slab L1, Column C1)"/>
+                                <TextBox Text="{Binding TakeoffName, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SubTextBrush}" FontSize="10.5" Margin="0,6,0,6"
+                                           Text="Use Length / Area / Count. Area + Depth (Properties tab) = Volume (m³)."/>
+                                <WrapPanel Margin="0,0,0,6">
+                                    <Button Content="↔ Length" Margin="0,0,4,4" Command="{Binding ToolCommand}" CommandParameter="Length"/>
+                                    <Button Content="◩ Area" Margin="0,0,4,4" Command="{Binding ToolCommand}" CommandParameter="Area"/>
+                                    <Button Content="⦿ Count" Margin="0,0,4,4" Command="{Binding ToolCommand}" CommandParameter="Count"/>
+                                    <Button Content="Export Excel" Margin="0,0,4,4" Command="{Binding ExportTakeoffCommand}"/>
+                                </WrapPanel>
+                            </StackPanel>
+                            <DataGrid ItemsSource="{Binding Takeoff}" IsReadOnly="True">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="*"/>
+                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat=N2}" Width="70"/>
+                                    <DataGridTextColumn Header="Unit" Binding="{Binding Unit}" Width="40"/>
+                                    <DataGridTextColumn Header="#" Binding="{Binding Items}" Width="30"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- Settings -->
+                    <TabItem Header="⚙">
+                        <StackPanel Margin="10">
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="USER / AUTHOR"/>
+                            <TextBox Text="{Binding Author, UpdateSourceTrigger=LostFocus}"/>
+                            <CheckBox Content="Dark theme" IsChecked="{Binding IsDark}" Margin="0,10,0,0"/>
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="SCALE"/>
+                            <TextBlock Text="{Binding ScaleText}"/>
+                            <Button Content="Set scale…" HorizontalAlignment="Left" Margin="0,4,0,0" Command="{Binding SetScaleCommand}"/>
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="AUTOSAVE"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SubTextBrush}" Text="Autosaves every minute with backups _backup_001..003. If the app closes unexpectedly, recovery is offered on the next start."/>
+                        </StackPanel>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+
+            <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+            <!-- ============ BOTTOM PANEL ============ -->
+            <TabControl Grid.Row="3" x:Name="BottomTabs">
+                <TabItem>
+                    <TabItem.Header>
+                        <TextBlock><Run Text="Markups List ("/><Run Text="{Binding Markups.Count, Mode=OneWay}"/><Run Text=")"/></TextBlock>
+                    </TabItem.Header>
+                    <DockPanel>
+                        <WrapPanel DockPanel.Dock="Top" Margin="6,4">
+                            <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="{DynamicResource SubTextBrush}"/>
+                            <TextBox Width="170" Text="{Binding MarkupSearch, UpdateSourceTrigger=PropertyChanged}" ToolTip="Search markups"/>
+                            <TextBlock Text="Status" VerticalAlignment="Center" Margin="10,0,4,0" Foreground="{DynamicResource SubTextBrush}"/>
+                            <ComboBox Width="100" ItemsSource="{Binding StatusFilterOptions}" SelectedItem="{Binding StatusFilter}"/>
+                            <TextBlock Text="Type" VerticalAlignment="Center" Margin="10,0,4,0" Foreground="{DynamicResource SubTextBrush}"/>
+                            <ComboBox Width="100" ItemsSource="{Binding TypeFilterOptions}" SelectedItem="{Binding TypeFilter}"/>
+                            <TextBlock Text="Group" VerticalAlignment="Center" Margin="10,0,4,0" Foreground="{DynamicResource SubTextBrush}"/>
+                            <ComboBox Width="90" ItemsSource="{Binding GroupOptions}" SelectedItem="{Binding GroupBy}"/>
+                            <CheckBox Content="Current page only" Margin="10,0,0,0" IsChecked="{Binding CurrentPageOnly}"/>
+                            <Button Content="Delete" Margin="12,0,4,0" Command="{Binding DeleteMarkupCommand}" CommandParameter="{Binding SelectedItems, ElementName=MarkupGrid}"/>
+                            <Button Content="Excel" Margin="0,0,4,0" Command="{Binding ExportMarkupsExcelCommand}"/>
+                            <Button Content="CSV" Command="{Binding ExportMarkupsCsvCommand}"/>
+                        </WrapPanel>
+                        <DataGrid x:Name="MarkupGrid" ItemsSource="{Binding MarkupsView}" SelectedItem="{Binding SelectedMarkup}"
+                                  MouseDoubleClick="MarkupGrid_DoubleClick">
+                            <DataGrid.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.HeaderTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Margin="6,4" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
+                                                <Run Text="{Binding Name, Mode=OneWay}"/><Run Text="  ("/><Run Text="{Binding ItemCount, Mode=OneWay}"/><Run Text=")"/>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </GroupStyle.HeaderTemplate>
+                                </GroupStyle>
+                            </DataGrid.GroupStyle>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="ID" Binding="{Binding Id}" IsReadOnly="True" Width="44"/>
+                                <DataGridTextColumn Header="Page" Binding="{Binding PageNumber, Mode=OneWay}" IsReadOnly="True" Width="44"/>
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" IsReadOnly="True" Width="90"/>
+                                <DataGridTextColumn Header="Subject" Binding="{Binding Subject, UpdateSourceTrigger=LostFocus}" Width="130"/>
+                                <DataGridTextColumn Header="Comment" Binding="{Binding Comment, UpdateSourceTrigger=LostFocus}" Width="380"/>
+                                <DataGridTextColumn Header="Measurement" Binding="{Binding ValueText, Mode=OneWay}" IsReadOnly="True" Width="150"/>
+                                <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="90"/>
+                                <DataGridTextColumn Header="Date" Binding="{Binding CreatedDate, StringFormat=dd/MM/yy HH:mm, Mode=OneWay}" IsReadOnly="True" Width="96"/>
+                                <DataGridComboBoxColumn Header="Status" SelectedItemBinding="{Binding Status}" ItemsSource="{x:Static local:Lists.MarkupStatuses}" Width="96"/>
+                                <DataGridTextColumn Header="X" Binding="{Binding X, Mode=OneWay}" IsReadOnly="True" Width="58"/>
+                                <DataGridTextColumn Header="Y" Binding="{Binding Y, Mode=OneWay}" IsReadOnly="True" Width="58"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </TabItem>
+
+                <TabItem x:Name="IssuesTab">
+                    <TabItem.Header>
+                        <TextBlock><Run Text="QA/QC Issues ("/><Run Text="{Binding Issues.Count, Mode=OneWay}"/><Run Text=")"/></TextBlock>
+                    </TabItem.Header>
+                    <DockPanel>
+                        <WrapPanel DockPanel.Dock="Top" Margin="6,4">
+                            <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="{DynamicResource SubTextBrush}"/>
+                            <TextBox Width="170" Text="{Binding IssueFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Button Content="+ Issue" Margin="10,0,4,0" Command="{Binding NewIssueCommand}"/>
+                            <Button Content="❗ Pin on drawing" Margin="0,0,4,0" Command="{Binding ToolCommand}" CommandParameter="IssuePin"/>
+                            <Button Content="From markup" Margin="0,0,4,0" Command="{Binding IssueFromMarkupCommand}"/>
+                            <Button Content="Next step ▶" Margin="0,0,4,0" Command="{Binding AdvanceIssueCommand}" ToolTip="NOT CHECKED → CHECKING → COMMENTED → RESUBMITTED → VERIFIED → APPROVED"/>
+                            <Button Content="Go to" Margin="0,0,4,0" Command="{Binding GoToIssueCommand}"/>
+                            <Button Content="Delete" Margin="0,0,4,0" Command="{Binding DeleteIssueCommand}"/>
+                            <Button Content="Excel" Command="{Binding ExportIssuesCommand}"/>
+                        </WrapPanel>
+                        <DataGrid ItemsSource="{Binding IssuesView}" SelectedItem="{Binding SelectedIssue}" SelectionMode="Single" MouseDoubleClick="IssueGrid_DoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Issue ID" Binding="{Binding IssueId}" Width="70"/>
+                                <DataGridTextColumn Header="Sheet" Binding="{Binding Sheet}" Width="90"/>
+                                <DataGridTextColumn Header="Page" Binding="{Binding PageNumber, Mode=OneWay}" IsReadOnly="True" Width="40"/>
+                                <DataGridTextColumn Header="Location" Binding="{Binding Location}" Width="120"/>
+                                <DataGridComboBoxColumn Header="Category" SelectedItemBinding="{Binding Category}" ItemsSource="{x:Static local:Lists.IssueCategories}" Width="100"/>
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                                <DataGridComboBoxColumn Header="Severity" SelectedItemBinding="{Binding Severity}" ItemsSource="{x:Static local:Lists.Severities}" Width="74"/>
+                                <DataGridTextColumn Header="Assigned To" Binding="{Binding AssignedTo}" Width="90"/>
+                                <DataGridComboBoxColumn Header="Status" SelectedItemBinding="{Binding Status}" ItemsSource="{x:Static local:Lists.IssueStatuses}" Width="110"/>
+                                <DataGridTextColumn Header="Due Date" Binding="{Binding DueDate, StringFormat=yyyy-MM-dd}" Width="84"/>
+                                <DataGridTextColumn Header="Reviewer" Binding="{Binding Reviewer}" Width="80"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </TabItem>
+
+                <TabItem>
+                    <TabItem.Header>
+                        <TextBlock><Run Text="Drawing Register ("/><Run Text="{Binding Register.Count, Mode=OneWay}"/><Run Text=")"/></TextBlock>
+                    </TabItem.Header>
+                    <DockPanel>
+                        <WrapPanel DockPanel.Dock="Top" Margin="6,4">
+                            <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="{DynamicResource SubTextBrush}"/>
+                            <TextBox Width="170" Text="{Binding RegisterFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Button Content="Re-read from PDF" Margin="10,0,4,0" Command="{Binding DetectRegisterCommand}" ToolTip="Uses zones named Sheet/Title/Rev/Date if present, otherwise auto-detection"/>
+                            <Button Content="Excel" Margin="0,0,4,0" Command="{Binding ExportRegisterCommand}" CommandParameter="xlsx"/>
+                            <Button Content="CSV" Command="{Binding ExportRegisterCommand}" CommandParameter="csv"/>
+                        </WrapPanel>
+                        <DataGrid ItemsSource="{Binding RegisterView}" MouseDoubleClick="RegisterGrid_DoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Page" Binding="{Binding PageNumber, Mode=OneWay}" IsReadOnly="True" Width="44"/>
+                                <DataGridTextColumn Header="Sheet" Binding="{Binding Sheet}" Width="140"/>
+                                <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*"/>
+                                <DataGridTextColumn Header="Revision" Binding="{Binding Revision}" Width="70"/>
+                                <DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="90"/>
+                                <DataGridComboBoxColumn Header="Status" SelectedItemBinding="{Binding Status}" ItemsSource="{x:Static local:Lists.DrawingStatuses}" Width="100"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </TabItem>
+
+                <TabItem x:Name="ZoneResultsTab">
+                    <TabItem.Header>
+                        <TextBlock><Run Text="Zone Results ("/><Run Text="{Binding ZoneResults.Count, Mode=OneWay}"/><Run Text=")"/></TextBlock>
+                    </TabItem.Header>
+                    <DataGrid ItemsSource="{Binding ZoneResults}" IsReadOnly="True" MouseDoubleClick="ZoneResults_DoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Page" Binding="{Binding PageNumber}" Width="44"/>
+                            <DataGridTextColumn Header="Zone" Binding="{Binding Zone}" Width="110"/>
+                            <DataGridTextColumn Header="Rule" Binding="{Binding Rule}" Width="90"/>
+                            <DataGridTextColumn Header="PDF 1" Binding="{Binding Value}" Width="*"/>
+                            <DataGridTextColumn Header="PDF 2" Binding="{Binding ValueB}" Width="*"/>
+                            <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="56">
+                                <DataGridTextColumn.CellStyle>
+                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="Foreground" Value="#43A047"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Passed}" Value="False">
+                                                <Setter Property="Foreground" Value="#E53935"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.CellStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="160"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+
+                <TabItem>
+                    <TabItem.Header>
+                        <TextBlock><Run Text="Changes ("/><Run Text="{Binding Changes.Count, Mode=OneWay}"/><Run Text=")"/></TextBlock>
+                    </TabItem.Header>
+                    <DataGrid ItemsSource="{Binding Changes}" IsReadOnly="True" MouseDoubleClick="Changes_DoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Page" Binding="{Binding PageNumber}" Width="44"/>
+                            <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="110"/>
+                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+            </TabControl>
+        </Grid>
+
+        <!-- =============================== STATUS BAR =============================== -->
+        <Border Grid.Row="3" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0">
+            <DockPanel Margin="8,3">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <StackPanel Orientation="Horizontal" Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}">
+                        <ProgressBar Width="120" Height="6" Value="{Binding Progress}" Margin="0,0,6,0"/>
+                        <Button Content="Stop" Padding="6,0" Margin="0,0,12,0" Command="{Binding CancelJobCommand}"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding PageText}" Margin="12,0"/>
+                    <TextBlock Text="{Binding ZoomText}" Margin="12,0"/>
+                    <TextBlock Text="{Binding ScaleText}" Margin="12,0"/>
+                    <TextBlock Text="{Binding CoordText}" Margin="12,0" MinWidth="150"/>
+                    <TextBlock Text="{Binding MeasureText}" Margin="12,0" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" MinWidth="120"/>
+                    <TextBlock Text="{Binding ToolName, StringFormat=Tool: {0}}" Margin="12,0,0,0" Foreground="{DynamicResource SubTextBrush}"/>
+                </StackPanel>
+                <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource SubTextBrush}"/>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
