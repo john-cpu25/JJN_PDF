@@ -129,12 +129,18 @@ export default function install(app) {
 
     const z = hitTestZone(view, pt);
     if (z) {
+      const countSameName = S.zones.filter(item => item.name === z.name).length;
       const items = [
         { label: `✏ Sửa vùng ${z.name}…`, action: () => app.editSpecificZone?.(z) },
       ];
       const text = z.text_v2 || z.text_v1;
       if (text) items.push({ label: '📋 Copy text', action: () => navigator.clipboard.writeText(text).then(() => toast('Đã copy text', 'ok')) });
-      items.push('-', { label: `🗑 Xoá vùng ${z.name}`, action: () => app.deleteZone?.(z) });
+      items.push('-');
+      items.push({ label: `🗑 Xoá vùng ${z.name} (trang này)`, action: () => app.deleteZone?.(z) });
+      if (countSameName > 1) {
+        items.push({ label: `🗑 Xoá ${z.name} ở tất cả các trang (${countSameName} trang)`, action: () => app.deleteZoneAllPages?.(z) });
+      }
+      items.push({ label: `💥 Xoá tất cả vùng check (${S.zones.length})`, action: () => app.deleteAllZones?.() });
       ui.contextMenu(items, cx, cy);
       return;
     }

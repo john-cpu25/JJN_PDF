@@ -72,7 +72,7 @@ export default function install(app) {
 
   // ------------------------------------------------------------- checks
   async function checkZones(list, onProgress) {
-    const CH = 40;
+    const CH = 15;
     for (let i = 0; i < list.length; i += CH) {
       const chunk = list.slice(i, i + CH);
       const r = await api.postJSON('/api/zones/check', { ...app.settings(), zones: chunk.map(pick) });
@@ -80,6 +80,7 @@ export default function install(app) {
       returned.forEach((z, k) => {
         if (chunk[k]) Object.assign(chunk[k], z);
       });
+      refreshZoneTable();
       if (onProgress && onProgress(Math.min(list.length, i + CH), list.length) === false) break;
     }
   }
@@ -107,6 +108,7 @@ export default function install(app) {
     }
     const order = new Map(temps.map((t, i) => [t.name, i]));
     S.zones.sort((a, b) => a.page - b.page || (order.get(a.name) ?? 0) - (order.get(b.name) ?? 0));
+    refreshZoneTable();
     return added;
   }
 
@@ -133,6 +135,9 @@ export default function install(app) {
     refreshZoneTable();
     app.redrawOverlays();
     app.showTab('zones');
+    if (allPages() && app.pageCount() > 1) {
+      runZoneCheck();
+    }
   };
 
   async function runZoneCheck() {
@@ -246,11 +251,39 @@ export default function install(app) {
     const idx = S.zones.indexOf(z);
     if (idx >= 0) {
       const name = z.name;
+      const pg = z.page + 1;
       S.zones.splice(idx, 1);
+      sel.delete(idx);
       refreshZoneTable();
       app.redrawOverlays();
-      toast(`Đã xoá vùng <b>${esc(name)}</b>`, 'ok');
+      toast(`Đã xoá vùng <b>${esc(name)}</b> (Trang ${pg})`, 'ok');
     }
+  };
+
+  app.deleteZoneAllPages = (z) => {
+    const name = z.name;
+    const prev = S.zones.length;
+    S.zones = S.zones.filter(item => item.name !== name);
+    const count = prev - S.zones.length;
+    sel = new Set();
+    refreshZoneTable();
+    app.redrawOverlays();
+    toast(`Đã xoá vùng <b>${esc(name)}</b> trên tất cả <b>${count}</b> trang`, 'ok');
+  };
+
+  app.deleteAllZones = async () => {
+    if (!S.zones.length) {
+      toast('Không có vùng nào để xoá', 'info');
+      return;
+    }
+    const ok = await ui.confirmBox('Xoá tất cả vùng', `Bạn có chắc chắn muốn xoá toàn bộ <b>${S.zones.length}</b> vùng check không?`, 'Xoá tất cả');
+    if (!ok) return;
+    const count = S.zones.length;
+    S.zones = [];
+    sel = new Set();
+    refreshZoneTable();
+    app.redrawOverlays();
+    toast(`Đã xoá toàn bộ <b>${count}</b> vùng check`, 'ok');
   };
 
   app.editSpecificZone = async (z) => {
@@ -458,6 +491,7 @@ export default function install(app) {
   $('#btn-zone-batch').onclick = batchCheck;
   $('#btn-zone-edit').onclick = editZone;
   $('#btn-zone-del').onclick = deleteZones;
+  $('#btn-zone-del-all')?.addEventListener('click', () => app.deleteAllZones?.());
   $('#btn-zone-save').onclick = saveTemplate;
   $('#btn-zone-load').onclick = loadTemplate;
   $('#btn-zone-xlsx').onclick = exportZones;
