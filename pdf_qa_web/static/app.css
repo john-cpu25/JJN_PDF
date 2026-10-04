@@ -90,6 +90,10 @@ p.muted { margin: 0; }
 .doc-btn { max-width: 220px; background: rgba(255, 255, 255, .03); border-color: var(--line); }
 .doc-label { overflow: hidden; text-overflow: ellipsis; }
 .doc-btn.loaded .doc-label { color: #fff; font-weight: 500; }
+.doc-folder { width: 16px; height: 16px; flex: none; transition: transform .15s ease, filter .15s ease; }
+.doc-btn:hover .doc-folder { transform: scale(1.15); }
+.folder-v1 { color: #4f8cff; filter: drop-shadow(0 0 6px rgba(79, 140, 255, 0.45)); }
+.folder-v2 { color: #20aa5a; filter: drop-shadow(0 0 6px rgba(32, 170, 90, 0.45)); }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .dot-v1 { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
 .dot-v2 { background: var(--green); box-shadow: 0 0 8px var(--green); }
