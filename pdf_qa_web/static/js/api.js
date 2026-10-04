@@ -7,7 +7,26 @@ import { downloadBlob } from './ui.js';
 
 export async function getJSON(url) {
   if (url.includes('/api/meta')) {
-    return { rules: {}, labels: {}, user: 'Web' };
+    return {
+      rules: {
+        compare: "So sánh Ver1 ↔ Ver2",
+        extract: "Chỉ trích xuất data",
+        contains: "Chứa text",
+        equals: "Bằng chính xác",
+        regex: "Khớp Regex",
+        not_empty: "Không được rỗng",
+        number_range: "Số trong khoảng (min-max)"
+      },
+      labels: {
+        geo_removed: "Hình xoá",
+        geo_added: "Hình thêm",
+        geo_changed: "Hình sửa",
+        removed: "Text xoá",
+        added: "Text thêm",
+        changed: "Text sửa"
+      },
+      user: "User"
+    };
   }
   if (url.startsWith('/api/docs/')) {
     const id = url.split('/api/docs/')[1].split('/')[0];

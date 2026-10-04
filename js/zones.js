@@ -13,7 +13,16 @@ export default function install(app) {
     number_range: 'Mọi số trong vùng phải nằm trong khoảng. VD: 100-500',
   };
   const NO_EXP = ['compare', 'not_empty', 'extract'];
-  const ruleName = r => app.meta.rules[r] || r;
+  const DEFAULT_RULES = {
+    compare: 'So sánh Ver1 ↔ Ver2',
+    extract: 'Chỉ trích xuất data',
+    contains: 'Chứa text',
+    equals: 'Bằng chính xác',
+    regex: 'Khớp Regex',
+    not_empty: 'Không được rỗng',
+    number_range: 'Số trong khoảng (min-max)',
+  };
+  const ruleName = r => app.meta.rules?.[r] || DEFAULT_RULES[r] || r;
   const pick = z => ({ name: z.name, page: z.page, rect: z.rect, rule: z.rule, expected: z.expected || '' });
   const allPages = () => $('#chk-allpages').checked;
   let sel = new Set();
@@ -22,8 +31,12 @@ export default function install(app) {
 
   // ------------------------------------------------------------- dialog
   function zoneDialog({ name, rule = 'compare', expected = '', preview = '', allowCompare = true }) {
-    if (!allowCompare && rule === 'compare') rule = 'extract';
-    const opts = Object.entries(app.meta.rules).map(([k, v]) => {
+    const rulesObj = (app.meta.rules && Object.keys(app.meta.rules).length) ? app.meta.rules : DEFAULT_RULES;
+    if (!allowCompare && rule === 'compare') rule = preview ? 'contains' : 'extract';
+    if (!expected && preview && (rule === 'contains' || rule === 'equals')) {
+      expected = preview.trim().split('\n')[0] || '';
+    }
+    const opts = Object.entries(rulesObj).map(([k, v]) => {
       const dis = k === 'compare' && !allowCompare;
       return `<option value="${k}" ${k === rule ? 'selected' : ''} ${dis ? 'disabled' : ''}>${esc(v)}${dis ? '  (cần mở cả 2 bản)' : ''}</option>`;
     }).join('');
@@ -41,6 +54,9 @@ export default function install(app) {
           const k = $('#zd-rule', root).value;
           $('#zd-hint', root).textContent = HINTS[k] || '';
           $('#zd-exp', root).disabled = NO_EXP.includes(k);
+          if (!NO_EXP.includes(k) && !$('#zd-exp', root).value && preview) {
+            $('#zd-exp', root).value = preview.trim().split('\n')[0] || '';
+          }
         };
         $('#zd-rule', root).addEventListener('change', upd);
         upd();
@@ -60,7 +76,10 @@ export default function install(app) {
     for (let i = 0; i < list.length; i += CH) {
       const chunk = list.slice(i, i + CH);
       const r = await api.postJSON('/api/zones/check', { ...app.settings(), zones: chunk.map(pick) });
-      r.zones.forEach((z, k) => Object.assign(chunk[k], z));
+      const returned = r.zones || r.results || [];
+      returned.forEach((z, k) => {
+        if (chunk[k]) Object.assign(chunk[k], z);
+      });
       if (onProgress && onProgress(Math.min(list.length, i + CH), list.length) === false) break;
     }
   }

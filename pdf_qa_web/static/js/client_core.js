@@ -27,20 +27,23 @@ class ClientDoc {
     const vp = page.getViewport({ scale: 1.0 });
     const words = [];
 
-    // Parse text items into display coordinates
+    // Parse text items into display coordinates (rotation and transform aware)
     for (const item of tc.items) {
       if (!item.str || !item.str.trim()) continue;
-      // transform: [scaleX, skewY, skewX, scaleY, tx, ty]
-      const tx = item.transform[4];
-      const ty = item.transform[5];
-      const h = Math.hypot(item.transform[2], item.transform[3]) || item.height || 10;
+      const [a, b, c, d, e, f] = item.transform;
+      const h = Math.hypot(b, d) || item.height || 12;
       const w = item.width || (item.str.length * h * 0.6);
 
-      // In PDF coordinate system (0,0 is bottom-left). Convert to display coords (0,0 top-left):
-      const x0 = tx;
-      const y0 = vp.height - ty - h;
-      const x1 = tx + w;
-      const y1 = vp.height - ty;
+      // Four corners in PDF coordinates
+      const vp0 = vp.convertToViewportPoint(e, f);
+      const vp1 = vp.convertToViewportPoint(a * w + e, b * w + f);
+      const vp2 = vp.convertToViewportPoint(c * h + e, d * h + f);
+      const vp3 = vp.convertToViewportPoint(a * w + c * h + e, b * w + d * h + f);
+
+      const x0 = Math.min(vp0[0], vp1[0], vp2[0], vp3[0]);
+      const x1 = Math.max(vp0[0], vp1[0], vp2[0], vp3[0]);
+      const y0 = Math.min(vp0[1], vp1[1], vp2[1], vp3[1]);
+      const y1 = Math.max(vp0[1], vp1[1], vp2[1], vp3[1]);
 
       // Split into space-separated words
       const parts = item.str.split(/\s+/);
@@ -400,23 +403,29 @@ class ClientCore {
   async readRegion({ d1, d2, page, rect, dx = 0, dy = 0 }) {
     const doc1 = this.getDoc(d1), doc2 = this.getDoc(d2);
     const p = page;
-    const [x0, y0, x1, y1] = rect;
+    const rx0 = Math.min(rect[0], rect[2]);
+    const ry0 = Math.min(rect[1], rect[3]);
+    const rx1 = Math.max(rect[0], rect[2]);
+    const ry1 = Math.max(rect[1], rect[3]);
 
     const extractLines = async (doc, offX = 0, offY = 0) => {
       if (!doc) return [];
       const words = await doc.getWords(p);
       const inBox = words.filter(w => {
-        const cx = (w.x0 + w.x1) / 2 + offX;
-        const cy = (w.y0 + w.y1) / 2 + offY;
-        return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
+        const wx0 = w.x0 + offX, wx1 = w.x1 + offX;
+        const wy0 = w.y0 + offY, wy1 = w.y1 + offY;
+        const cx = (wx0 + wx1) / 2;
+        const cy = (wy0 + wy1) / 2;
+        return (cx >= rx0 - 2 && cx <= rx1 + 2 && cy >= ry0 - 2 && cy <= ry1 + 2) ||
+               !(wx1 < rx0 || wx0 > rx1 || wy1 < ry0 || wy0 > ry1);
       });
       // Sort into lines by Y then X
-      inBox.sort((a, b) => Math.abs(a.y0 - b.y0) > 4 ? a.y0 - b.y0 : a.x0 - b.x0);
+      inBox.sort((a, b) => Math.abs(a.y0 - b.y0) > 5 ? a.y0 - b.y0 : a.x0 - b.x0);
       const lines = [];
       let curLine = [];
       let curY = -999;
       for (const w of inBox) {
-        if (Math.abs(w.y0 - curY) > 5) {
+        if (Math.abs(w.y0 - curY) > 6) {
           if (curLine.length) lines.push(curLine.map(item => item.text).join(' '));
           curLine = [w];
           curY = w.y0;
@@ -452,34 +461,72 @@ class ClientCore {
     for (const z of zones) {
       const p = z.page || 0;
       const rr = await this.readRegion({ d1, d2, page: p, rect: z.rect, dx, dy });
-      const text1 = rr.rows.map(r => r.text1).filter(Boolean).join(' ');
-      const text2 = rr.rows.map(r => r.text2).filter(Boolean).join(' ');
+      const text1 = rr.rows.map(r => r.text1).filter(Boolean).join(' ').trim();
+      const text2 = rr.rows.map(r => r.text2).filter(Boolean).join(' ').trim();
       const val = text2 || text1;
 
       let status = 'OK';
-      let note = '';
-      const ruleType = z.rule_type || 'compare';
-      const target = (z.rule_val || '').trim();
+      let detail = '';
+      const rule = z.rule || z.rule_type || 'compare';
+      const expected = (z.expected || z.rule_val || '').trim();
 
-      if (ruleType === 'compare') {
-        if (text1 === text2) { status = 'OK'; note = 'Trùng khớp'; }
-        else { status = 'CHANGED'; note = `${text1 || '—'} ≠ ${text2 || '—'}`; }
-      } else if (ruleType === 'exact') {
-        status = val === target ? 'OK' : 'FAIL';
-      } else if (ruleType === 'contains') {
-        status = val.includes(target) ? 'OK' : 'FAIL';
-      } else if (ruleType === 'regex') {
-        try { status = new RegExp(target).test(val) ? 'OK' : 'FAIL'; } catch { status = 'FAIL'; }
-      } else if (ruleType === 'not_empty') {
-        status = val.trim().length > 0 ? 'OK' : 'FAIL';
-      } else if (ruleType === 'data') {
+      if (rule === 'compare') {
+        if (!d1 || !d2) {
+          status = 'DATA';
+          detail = val ? 'Đã đọc text' : 'Vùng trống';
+        } else if (text1 === text2) {
+          status = 'OK';
+          detail = 'Trùng khớp';
+        } else {
+          status = 'CHANGED';
+          detail = `${text1 || '—'} ≠ ${text2 || '—'}`;
+        }
+      } else if (rule === 'extract') {
         status = 'DATA';
-        note = val;
+        detail = val ? 'Đã đọc text' : 'Vùng trống';
+      } else if (rule === 'equals') {
+        status = val.toLowerCase() === expected.toLowerCase() ? 'OK' : 'FAIL';
+        detail = status === 'OK' ? `Bằng: "${val}"` : `Khác: "${val}" ≠ "${expected}"`;
+      } else if (rule === 'contains') {
+        status = val.toLowerCase().includes(expected.toLowerCase()) ? 'OK' : 'FAIL';
+        detail = status === 'OK' ? `Chứa: "${expected}"` : `Không chứa: "${expected}"`;
+      } else if (rule === 'regex') {
+        try {
+          const re = new RegExp(expected, 'i');
+          status = re.test(val) ? 'OK' : 'FAIL';
+          detail = status === 'OK' ? `Khớp /${expected}/` : `Không khớp /${expected}/`;
+        } catch {
+          status = 'FAIL';
+          detail = 'Regex không hợp lệ';
+        }
+      } else if (rule === 'not_empty') {
+        status = val.length > 0 ? 'OK' : 'FAIL';
+        detail = status === 'OK' ? `Có text (${val.length} ký tự)` : 'Vùng để trống';
+      } else if (rule === 'number_range') {
+        const nums = (val.match(/[-+]?\d*\.?\d+/g) || []).map(Number);
+        const parts = expected.split(/[-–—,]/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+        if (parts.length >= 2 && nums.length > 0) {
+          const [min, max] = [Math.min(parts[0], parts[1]), Math.max(parts[0], parts[1])];
+          const ok = nums.every(n => n >= min && n <= max);
+          status = ok ? 'OK' : 'FAIL';
+          detail = `${nums.join(', ')} trong [${min}, ${max}]`;
+        } else {
+          status = nums.length ? 'OK' : 'FAIL';
+          detail = nums.length ? `Số: ${nums.join(', ')}` : 'Không tìm thấy số';
+        }
       }
 
-      results.push({ ...z, status, text: val, note: note || status });
+      results.push({
+        ...z,
+        rule,
+        expected,
+        status,
+        detail,
+        text_v1: text1,
+        text_v2: text2,
+      });
     }
-    return { results };
+    return { zones: results };
   }
 
   // ------------------------------------------------------------- Query
