@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF QA Viewer — So sánh &amp; kiểm tra bản vẽ (Web)</title>
+  <meta name="description" content="So sánh bản vẽ PDF Ver1/Ver2 (overlay, diff nét vẽ & text), crop vector, đọc data, vùng check, query và highlight như Bluebeam — ngay trên trình duyệt.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234f8cff'/><stop offset='1' stop-color='%238a5cff'/></linearGradient></defs><rect x='4' y='4' width='24' height='24' rx='6' transform='rotate(45 16 16)' fill='url(%23g)'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <!-- ================================================================ TOOLBAR -->
+  <header class="topbar" id="topbar">
+    <h1 class="logo"><span class="logo-mark"></span>PDF QA <small>web</small></h1>
+
+    <div class="tb-group">
+      <button class="tb doc-btn" id="btn-open1" title="Mở file PDF 1 (Ctrl+O)">
+        <span class="dot dot-v1"></span><span class="doc-label" id="lbl-doc1">PDF 1</span>
+      </button>
+      <button class="tb doc-btn" id="btn-open2" title="Mở file PDF 2 (Ctrl+Shift+O)">
+        <span class="dot dot-v2"></span><span class="doc-label" id="lbl-doc2">PDF 2</span>
+      </button>
+      <input type="file" id="file1" accept=".pdf,application/pdf" hidden>
+      <input type="file" id="file2" accept=".pdf,application/pdf" hidden>
+    </div>
+
+    <div class="tb-sep"></div>
+    <div class="seg" id="mode-seg" role="tablist" aria-label="Chế độ xem">
+      <button class="seg-btn" id="mode-v1" data-mode="v1" title="Chỉ xem Ver1 (1)">Ver1</button>
+      <button class="seg-btn" id="mode-v2" data-mode="v2" title="Chỉ xem Ver2 (2)">Ver2</button>
+      <button class="seg-btn" id="mode-side" data-mode="side" title="Xem Ver1 | Ver2 song song, đồng bộ zoom/pan (3)">⇆ Song song</button>
+      <button class="seg-btn" id="mode-overlay" data-mode="overlay" title="Chồng 2 bản: Đỏ = chỉ Ver1, Xanh = chỉ Ver2 (4)">◐ Overlay</button>
+    </div>
+
+    <div class="tb-sep"></div>
+    <div class="seg" id="tool-seg" aria-label="Công cụ">
+      <button class="seg-btn" id="tool-pan" data-tool="pan" title="Di chuyển (H / Esc)">✋ Pan</button>
+      <button class="seg-btn" id="tool-crop" data-tool="crop" title="Kéo khung để crop PDF/PNG (C)">✂ Crop</button>
+      <button class="seg-btn" id="tool-read" data-tool="read" title="Kéo khung để đọc &amp; so sánh data (R)">🔎 Đọc data</button>
+      <button class="seg-btn" id="tool-zone" data-tool="zone" title="Kéo khung để định nghĩa vùng check (Z)">▣ Vùng check</button>
+      <button class="seg-btn" id="tool-highlight" data-tool="highlight" title="Tô highlight như Bluebeam (G)">🖍 Highlight</button>
+    </div>
+
+    <div class="tb-sep"></div>
+    <div class="tb-group pager">
+      <button class="tb icon" id="btn-prev" title="Trang trước (PgUp)">◀</button>
+      <input type="number" id="inp-page" min="1" value="1" title="Trang">
+      <span class="muted" id="lbl-pages">/ 0</span>
+      <button class="tb icon" id="btn-next" title="Trang sau (PgDn)">▶</button>
+    </div>
+    <div class="tb-group">
+      <button class="tb" id="btn-fit" title="Vừa màn hình (F)">⤢ Fit</button>
+      <button class="tb icon" id="btn-zoom-out" title="Thu nhỏ (-)">−</button>
+      <button class="tb icon" id="btn-zoom-in" title="Phóng to (+)">+</button>
+    </div>
+
+    <div class="tb-spacer"></div>
+    <button class="btn primary glow" id="btn-compare" title="So sánh Ver1 ↔ Ver2 trang hiện tại (Ctrl+D)">⚡ So sánh trang</button>
+  </header>
+
+  <!-- ============================================================== WORKSPACE -->
+  <main class="workspace" id="workspace">
+    <section class="views" id="views" aria-label="Bản vẽ">
+      <div class="view" id="viewA"></div>
+      <div class="splitter" id="splitter" hidden></div>
+      <div class="view" id="viewB" hidden></div>
+    </section>
+
+    <div class="dock-resizer" id="dock-resizer" title="Kéo để đổi độ rộng"></div>
+
+    <aside class="dock" id="dock" aria-label="Bảng QA">
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="compare" id="tab-compare">⇆ So sánh</button>
+        <button class="tab" data-tab="read" id="tab-read">🔎 Đọc data</button>
+        <button class="tab" data-tab="zones" id="tab-zones">▣ Vùng check</button>
+        <button class="tab" data-tab="query" id="tab-query">⌕ Query</button>
+        <button class="tab" data-tab="markup" id="tab-markup">🖍 Markup</button>
+      </nav>
+
+      <!-- ---------------------------------------------------- compare -->
+      <section class="panel active" id="panel-compare">
+        <fieldset class="group">
+          <legend>Thiết lập so sánh</legend>
+          <div class="form-grid">
+            <label for="set-dpi">DPI render</label>
+            <select id="set-dpi" title="Độ phân giải render nền. Auto ≈ 5000px cạnh dài. Khi zoom sâu sẽ tự render nét.">
+              <option>Auto</option><option>72</option><option>100</option><option>150</option><option>200</option><option>300</option>
+            </select>
+            <label for="set-thr">Ngưỡng mực</label>
+            <input type="number" id="set-thr" min="50" max="254" value="200" title="Pixel tối hơn giá trị này được coi là nét vẽ">
+            <label for="set-dx">Lệch Ver2 dx</label>
+            <div class="suffix"><input type="number" id="set-dx" step="0.5" value="0" min="-2000" max="2000"><span>pt</span></div>
+            <label for="set-dy">dy</label>
+            <div class="suffix"><input type="number" id="set-dy" step="0.5" value="0" min="-2000" max="2000"><span>pt</span></div>
+            <label for="set-tol">Dung sai</label>
+            <div class="suffix"><input type="number" id="set-tol" min="0" max="6" value="1" title="Bỏ qua lệch nhỏ do khử răng cưa"><span>px</span></div>
+            <span></span><span></span>
+          </div>
+          <div class="checks">
+            <label class="chk"><input type="checkbox" id="set-pixel" checked><span>So sánh nét vẽ (pixel)</span></label>
+            <label class="chk"><input type="checkbox" id="set-text" checked><span>So sánh text</span></label>
+            <label class="chk"><input type="checkbox" id="set-show" checked><span>Hiện khung khác biệt trên bản vẽ</span></label>
+          </div>
+        </fieldset>
+        <div class="legend">
+          <span><i style="--c:var(--red)"></i>Chỉ có ở Ver1 (xoá)</span>
+          <span><i style="--c:var(--green)"></i>Chỉ có ở Ver2 (thêm)</span>
+          <span><i style="--c:var(--orange)"></i>Sửa</span>
+          <span><i style="--c:var(--grey)"></i>Không đổi</span>
+        </div>
+        <div class="row2">
+          <button class="btn primary" id="btn-cmp-page">⚡ So sánh trang này</button>
+          <button class="btn" id="btn-cmp-all">📑 So sánh tất cả trang</button>
+        </div>
+        <div class="summary" id="sum-compare">Mở Ver1 và Ver2 rồi bấm So sánh.</div>
+        <div class="tree" id="diff-tree"><div class="empty">Chưa có kết quả so sánh</div></div>
+        <button class="btn" id="btn-cmp-export">📊 Xuất danh sách khác biệt (Excel)</button>
+      </section>
+
+      <!-- ------------------------------------------------------- read -->
+      <section class="panel" id="panel-read">
+        <p class="muted">Chọn công cụ <b>🔎 Đọc data</b> (R) rồi kéo khung trên bản vẽ. Text Ver1/Ver2 trong vùng được so sánh từng dòng và tô màu khác biệt.</p>
+        <div class="summary" id="sum-read">Chưa chọn vùng.</div>
+        <div class="preview" id="read-preview"><span class="muted">Preview vùng</span></div>
+        <div class="table-wrap grow"><table class="tbl" id="tbl-read"><thead><tr><th class="c-sym"></th><th>Ver1</th><th>Ver2</th></tr></thead><tbody></tbody></table></div>
+        <div class="btn-grid cols-3">
+          <button class="btn" id="btn-read-copy">📋 Copy</button>
+          <button class="btn" id="btn-read-csv">💾 CSV</button>
+          <button class="btn" id="btn-read-xlsx">📊 Excel</button>
+          <button class="btn span-2" id="btn-read-zone">▣ Thêm làm vùng check</button>
+          <button class="btn" id="btn-read-crop">✂ Crop vùng này</button>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------ zones -->
+      <section class="panel" id="panel-zones">
+        <p class="muted">Bấm <b>▣ Vùng check</b> (Z) rồi kéo khung để tạo vùng (VD: ô số bản vẽ, Rev, Suitability). Vùng được áp cho mọi trang, hoặc cho nhiều file PDF cùng khổ giấy.</p>
+        <div class="summary" id="sum-zones">0 vùng</div>
+        <div class="table-wrap grow"><table class="tbl selectable" id="tbl-zones">
+          <thead><tr><th>Tên</th><th>Trang</th><th>Quy tắc</th><th>Giá trị</th><th>Kết quả</th><th>Chi tiết</th><th class="c-t1">Text Ver1</th><th class="c-t2">Text Ver2</th></tr></thead>
+          <tbody></tbody></table></div>
+        <label class="chk"><input type="checkbox" id="chk-allpages" checked><span>Áp dụng vùng cho tất cả trang của file</span></label>
+        <div class="row2">
+          <button class="btn primary" id="btn-zone-run">▶ Kiểm tra file đang mở</button>
+          <button class="btn primary" id="btn-zone-batch" title="Áp các vùng check cho mọi trang của nhiều file PDF">📁 Kiểm tra nhiều file PDF…</button>
+          <input type="file" id="file-batch" accept=".pdf,application/pdf" multiple hidden>
+        </div>
+        <div class="btn-grid cols-4">
+          <button class="btn" id="btn-zone-edit">✎ Sửa</button>
+          <button class="btn" id="btn-zone-del">🗑 Xoá</button>
+          <button class="btn" id="btn-zone-save">💾 Lưu template</button>
+          <button class="btn" id="btn-zone-load">📂 Mở template</button>
+          <button class="btn" id="btn-zone-xlsx">📊 Xuất Excel</button>
+          <button class="btn" id="btn-zone-pivot">▦ Bảng data</button>
+          <button class="btn" id="btn-zone-crop">✂ Crop vùng</button>
+          <input type="file" id="file-template" accept=".json,application/json" hidden>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------ query -->
+      <section class="panel" id="panel-query">
+        <div class="search-row">
+          <input type="search" id="q-text" placeholder="Nhập text / số / regex, VD: 1200  hoặc  ^PT\d+">
+          <button class="btn primary" id="btn-q-run">⌕ Tìm</button>
+        </div>
+        <div class="form-grid">
+          <label for="q-scope">Phạm vi</label>
+          <select id="q-scope">
+            <option value="0">Trang hiện tại</option><option value="1">Tất cả trang</option>
+            <option value="2">Trong các vùng check</option><option value="3">Trong vùng Đọc data</option>
+          </select>
+          <label for="q-ver">Bản</label>
+          <select id="q-ver"><option value="0">Ver1 + Ver2</option><option value="1">Chỉ Ver1</option><option value="2">Chỉ Ver2</option></select>
+        </div>
+        <div class="checks">
+          <label class="chk"><input type="checkbox" id="q-regex"><span>Regex</span></label>
+          <label class="chk"><input type="checkbox" id="q-case"><span>Phân biệt hoa/thường</span></label>
+          <label class="color-pick" title="Màu highlight kết quả"><input type="color" id="q-color" value="#ff4fd8"><span>Màu highlight</span></label>
+          <label class="chk"><input type="checkbox" id="q-changed"><span>Chỉ kết quả có thay đổi Ver1↔Ver2</span></label>
+        </div>
+        <div class="summary" id="sum-query">Kết quả: —</div>
+        <div class="table-wrap grow"><table class="tbl" id="tbl-query">
+          <thead><tr><th>Bản</th><th>Trang</th><th>Text</th><th>Trạng thái</th><th>Vị trí (pt)</th></tr></thead><tbody></tbody></table></div>
+        <div class="row2">
+          <button class="btn" id="btn-q-clear">✕ Xoá highlight</button>
+          <button class="btn" id="btn-q-xlsx">📊 Xuất Excel</button>
+        </div>
+      </section>
+
+      <!-- ----------------------------------------------------- markup -->
+      <section class="panel" id="panel-markup">
+        <p class="muted">Bấm <b>🖍 Highlight</b> (G) rồi kéo chuột: qua chữ → tô theo dòng chữ, qua vùng trống → tô vùng. Chuột phải vào highlight để ghi chú / đổi màu / xoá.</p>
+        <fieldset class="group">
+          <legend>Bút highlight</legend>
+          <div class="form-grid wide">
+            <label>Màu</label>
+            <div class="swatches" id="hl-swatches"></div>
+            <label for="hl-op">Độ đậm</label>
+            <div class="slider"><input type="range" id="hl-op" min="10" max="90" value="45"><span id="hl-op-lbl">45%</span></div>
+            <label for="hl-mode">Kiểu</label>
+            <select id="hl-mode"><option value="0">Tự bắt chữ (không có chữ → tô vùng)</option><option value="1">Chỉ tô vùng tự do</option><option value="2">Chỉ tô chữ</option></select>
+            <label for="hl-author">Người tô</label>
+            <input type="text" id="hl-author" placeholder="Tên người review">
+          </div>
+        </fieldset>
+        <div class="summary" id="sum-markup">0 highlight</div>
+        <div class="table-wrap grow"><table class="tbl" id="tbl-markup">
+          <thead><tr><th class="c-sw"></th><th>Bản</th><th>Trang</th><th>Kiểu</th><th>Text</th><th>Ghi chú</th><th>Người</th><th>Ngày</th></tr></thead><tbody></tbody></table></div>
+        <div class="btn-grid cols-4">
+          <button class="btn" id="btn-hl-comment">💬 Ghi chú</button>
+          <button class="btn" id="btn-hl-recolor">🎨 Đổi màu</button>
+          <button class="btn" id="btn-hl-del">🗑 Xoá</button>
+          <button class="btn" id="btn-hl-clear">✕ Xoá hết</button>
+          <button class="btn primary" id="btn-hl-pdf">💾 Lưu vào PDF</button>
+          <button class="btn" id="btn-hl-xlsx">📊 Xuất Excel</button>
+          <button class="btn" id="btn-hl-save">⤓ Lưu markup</button>
+          <button class="btn" id="btn-hl-load">⤒ Mở markup</button>
+          <input type="file" id="file-markup" accept=".json,application/json" hidden>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <!-- ============================================================== STATUSBAR -->
+  <footer class="statusbar">
+    <span id="status-msg" class="status-msg"></span>
+    <span id="status-coord">X: –  Y: –</span>
+    <span id="status-zoom">Zoom: –</span>
+  </footer>
+
+  <div class="drop-overlay" id="drop-overlay"><div class="drop-card"><div class="drop-icon">⇪</div><div>Thả 1 hoặc 2 file PDF vào đây</div><small>2 file → tự xếp Ver1 / Ver2 theo tên</small></div></div>
+  <div id="modal-root"></div>
+  <div class="toasts" id="toasts"></div>
+
+  <!-- Client-side libraries for GitHub Pages (No Python server required) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
