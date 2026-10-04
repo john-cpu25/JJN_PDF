@@ -38,9 +38,12 @@
     <div class="seg" id="mode-seg" role="tablist" aria-label="Chế độ xem">
       <button class="seg-btn" id="mode-v1" data-mode="v1" title="Chỉ xem Ver1 (1)">Ver1</button>
       <button class="seg-btn" id="mode-v2" data-mode="v2" title="Chỉ xem Ver2 (2)">Ver2</button>
-      <button class="seg-btn" id="mode-side" data-mode="side" title="Xem Ver1 | Ver2 song song, đồng bộ zoom/pan (3)">⇆ Song song</button>
+      <button class="seg-btn" id="mode-side" data-mode="side" title="Xem Ver1 | Ver2 song song (3)">⇆ Song song</button>
       <button class="seg-btn" id="mode-overlay" data-mode="overlay" title="Chồng 2 bản: Đỏ = chỉ Ver1, Xanh = chỉ Ver2 (4)">◐ Overlay</button>
     </div>
+    <button class="tb" id="btn-sync-toggle" title="Chuyển đổi giữa Lăn chuột Độc lập và Đồng bộ ở chế độ Song song" style="display:none;font-size:12px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,0.04)">
+      <span id="sync-icon">🔓</span> <span id="sync-label">Độc lập</span>
+    </button>
 
     <div class="tb-sep"></div>
     <div class="seg" id="tool-seg" aria-label="Công cụ">

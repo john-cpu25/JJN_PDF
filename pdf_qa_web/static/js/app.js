@@ -32,6 +32,7 @@ const S = {
   docs: { 1: null, 2: null },
   page: 0,
   mode: 'v1',
+  syncSide: false, // Default is independent scroll/zoom in side-by-side mode
   tool: 'pan',
   zones: [],
   diffItems: {},
@@ -288,10 +289,15 @@ function setMode(mode) {
   const side = mode === 'side';
   B.el.hidden = !side;
   $('#splitter').hidden = !side;
+  const syncBtn = $('#btn-sync-toggle');
+  if (syncBtn) {
+    syncBtn.style.display = side ? 'inline-flex' : 'none';
+    updateSyncUI();
+  }
   if (side) { A.el.style.flex = '1 1 0'; B.el.style.flex = '1 1 0'; }
   else A.el.style.flex = '';
   refreshView();
-  if (side) requestAnimationFrame(() => sync(A, B));
+  if (side && S.syncSide) requestAnimationFrame(() => sync(A, B));
 }
 app.setMode = setMode;
 
@@ -303,7 +309,13 @@ function setTool(tool) {
   app.msg(TOOL_HINT[tool], 8000);
 }
 app.setTool = setTool;
-app.fit = () => { A.fit(); if (S.mode === 'side') sync(A, B); };
+app.fit = () => {
+  A.fit();
+  if (S.mode === 'side') {
+    if (S.syncSide) sync(A, B);
+    else B.fit();
+  }
+};
 
 // ============================================================== rendering
 function refreshView() {
@@ -427,7 +439,7 @@ app.goto = (page, r, space = 1, margin = 2.5) => {
 // ================================================================= events
 let syncing = false;
 function sync(src, dst) {
-  if (syncing || S.mode !== 'side' || !src.hasImage || !dst.hasImage) return;
+  if (!S.syncSide || syncing || S.mode !== 'side' || !src.hasImage || !dst.hasImage) return;
   syncing = true;
   try {
     const [cx, cy] = src.centerPt();
@@ -439,7 +451,7 @@ function sync(src, dst) {
 
 for (const v of [A, B]) {
   v.onViewChanged = view => {
-    if (S.mode === 'side') sync(view, view === A ? B : A);
+    if (S.mode === 'side' && S.syncSide) sync(view, view === A ? B : A);
     $('#status-zoom').textContent = `Zoom: ${Math.round(view.s * 100)}%`;
   };
   v.onMouse = ([x, y]) => {
@@ -712,6 +724,28 @@ $('#btn-open1')?.addEventListener('click', e => {
 });
 $('#btn-open2')?.addEventListener('click', e => {
   if (e.target.tagName !== 'INPUT') $(`#file2`)?.click();
+});
+function updateSyncUI() {
+  const icon = $('#sync-icon');
+  const label = $('#sync-label');
+  const btn = $('#btn-sync-toggle');
+  if (icon) icon.textContent = S.syncSide ? '🔗' : '🔓';
+  if (label) label.textContent = S.syncSide ? 'Đồng bộ' : 'Độc lập';
+  if (btn) {
+    btn.classList.toggle('active', S.syncSide);
+    btn.title = S.syncSide ? 'Đang đồng bộ zoom/pan (bấm để chuyển sang Lăn chuột độc lập)' : 'Đang lăn chuột độc lập (bấm để chuyển sang Đồng bộ zoom/pan)';
+  }
+}
+
+$('#btn-sync-toggle')?.addEventListener('click', () => {
+  S.syncSide = !S.syncSide;
+  updateSyncUI();
+  if (S.syncSide) {
+    sync(A, B);
+    toast('Chế độ song song: <b>Đồng bộ zoom & cuộn</b>', 'ok');
+  } else {
+    toast('Chế độ song song: <b>Lăn chuột & di chuyển độc lập</b>', 'info');
+  }
 });
 $$('#mode-seg .seg-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 $$('#tool-seg .seg-btn').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
