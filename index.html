@@ -17,6 +17,7 @@
     <h1 class="logo"><span class="logo-mark"></span>PDF QA <small>web</small></h1>
 
     <div class="tb-group">
+      <button class="tb icon active" id="btn-toggle-sheets" title="Ẩn/Hiện danh sách bản vẽ (B)">📑</button>
       <button class="tb doc-btn" id="btn-open1" title="Mở file PDF 1 (Ctrl+O)">
         <span class="dot dot-v1"></span><span class="doc-label" id="lbl-doc1">PDF 1</span>
       </button>
@@ -63,6 +64,24 @@
 
   <!-- ============================================================== WORKSPACE -->
   <main class="workspace" id="workspace">
+    <!-- ========================================================== LEFT SIDEBAR -->
+    <aside class="left-sidebar" id="left-sidebar" aria-label="Danh sách bản vẽ">
+      <div class="ls-header">
+        <div class="ls-title">
+          <span>📑</span>
+          <span>Bản vẽ</span>
+          <span class="sheet-count-badge" id="sheet-count-badge">0</span>
+        </div>
+        <button class="ls-toggle-btn" id="btn-collapse-left" title="Thu gọn danh sách (B)">◀</button>
+      </div>
+      <div class="ls-subbar" id="sheet-files-summary">Chưa mở file</div>
+      <div class="sheet-list" id="sheet-list">
+        <div class="sheet-empty">Chưa có bản vẽ nào.<br>Mở PDF 1 hoặc PDF 2 để hiển thị danh sách trang.</div>
+      </div>
+    </aside>
+
+    <div class="left-resizer" id="left-resizer" title="Kéo để đổi độ rộng"></div>
+
     <section class="views" id="views" aria-label="Bản vẽ">
       <div class="view" id="viewA"></div>
       <div class="splitter" id="splitter" hidden></div>

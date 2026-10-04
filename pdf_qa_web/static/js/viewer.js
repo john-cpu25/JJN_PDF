@@ -87,7 +87,7 @@ export class Viewer {
 
   // --------------------------------------------------------------- image
   /** Show page image. Returns a promise resolved once the bitmap is displayed. */
-  setImage({ url, w, h, dpi, keepView = true }) {
+  async setImage({ url, w, h, dpi, keepView = true }) {
     const had = this.hasImage;
     const same = Math.abs(w - this.pageW) < 2 && Math.abs(h - this.pageH) < 2;
     this.pageW = w; this.pageH = h; this.baseDpi = dpi;
@@ -105,23 +105,28 @@ export class Viewer {
     if (!(keepView && had && same)) this.fit(); else this._apply();
     const token = ++this._baseToken;
     this.setLoading(true);
+    let resolvedUrl;
+    try {
+      resolvedUrl = await Promise.resolve(url);
+    } catch (e) {
+      if (token === this._baseToken) this.setLoading(false);
+      throw e;
+    }
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
         if (token !== this._baseToken) return resolve(false);
-        this.base.src = url;
+        this.base.src = resolvedUrl;
         this.setLoading(false);
         this._scheduleHires();
         resolve(true);
       };
-      img.onerror = async () => {
+      img.onerror = () => {
         if (token !== this._baseToken) return resolve(false);
         this.setLoading(false);
-        let msg = 'Không render được trang';
-        try { const r = await fetch(url); const j = await r.json(); msg = j.detail || msg; } catch { /* ignore */ }
-        reject(new Error(msg));
+        reject(new Error('Không render được trang'));
       };
-      img.src = url;
+      img.src = resolvedUrl;
     });
   }
 
@@ -331,7 +336,7 @@ export class Viewer {
     this._hiresTimer = setTimeout(() => this._doHires(), 180);
   }
 
-  _doHires() {
+  async _doHires() {
     if (!this.hasImage || !this.hiresProvider || !this.vw) return;
     let need = this.s * 72 * (window.devicePixelRatio || 1);
     if (need <= this.baseDpi * 1.15) { this._clearHires(); return; }
@@ -341,7 +346,7 @@ export class Viewer {
     const v = [Math.max(0, ax), Math.max(0, ay), Math.min(this.pageW, bx), Math.min(this.pageH, by)];
     if (v[2] <= v[0] || v[3] <= v[1]) return;
     if ((v[2] - v[0]) * (v[3] - v[1]) * (need / 72) ** 2 > 45e6) return;
-    const url = this.hiresProvider(v.map(n => Math.round(n * 100) / 100), Math.round(need));
+    const url = await Promise.resolve(this.hiresProvider(v.map(n => Math.round(n * 100) / 100), Math.round(need)));
     if (!url) return;
     const token = ++this._hiresToken;
     const img = new Image();

@@ -175,9 +175,95 @@ app.setDoc = (ver, info) => {
   else if (ver === 2 && !S.docs[1]) setMode('v2');
   else refreshView();
   app.refreshZoneTable();
+  renderSheetList();
   app.msg(`Đã mở Ver${ver}: ${info.name} (${info.page_count} trang)`);
   toast(`<b>Ver${ver}</b>: ${esc(info.name)} · ${info.page_count} trang`, 'ok');
 };
+
+function paperSizeName(w, h) {
+  const mmW = Math.round(Math.min(w, h) * 0.3528);
+  const mmH = Math.round(Math.max(w, h) * 0.3528);
+  if (Math.abs(mmW - 841) < 25 && Math.abs(mmH - 1189) < 25) return 'A0';
+  if (Math.abs(mmW - 594) < 20 && Math.abs(mmH - 841) < 20) return 'A1';
+  if (Math.abs(mmW - 420) < 15 && Math.abs(mmH - 594) < 15) return 'A2';
+  if (Math.abs(mmW - 297) < 15 && Math.abs(mmH - 420) < 15) return 'A3';
+  if (Math.abs(mmW - 210) < 10 && Math.abs(mmH - 297) < 10) return 'A4';
+  return `${mmW}×${mmH}mm`;
+}
+
+function renderSheetList() {
+  const n = app.pageCount();
+  const badge = $('#sheet-count-badge');
+  if (badge) badge.textContent = `${n} bản vẽ`;
+
+  const summary = $('#sheet-files-summary');
+  if (summary) {
+    if (!n) {
+      summary.textContent = 'Chưa mở file';
+    } else {
+      const p1 = S.docs[1] ? `Ver1: ${S.docs[1].page_count} tr` : '';
+      const p2 = S.docs[2] ? `Ver2: ${S.docs[2].page_count} tr` : '';
+      summary.textContent = [p1, p2].filter(Boolean).join(' · ');
+    }
+  }
+
+  const listEl = $('#sheet-list');
+  if (!listEl) return;
+  if (!n) {
+    listEl.innerHTML = '<div class="sheet-empty">Chưa có bản vẽ nào.<br>Mở PDF 1 hoặc PDF 2 để hiển thị danh sách trang.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  for (let p = 0; p < n; p++) {
+    const item = document.createElement('div');
+    item.className = `sheet-item ${p === S.page ? 'active' : ''}`;
+    item.dataset.page = p;
+
+    let w = 842, h = 595;
+    for (const v of [1, 2]) {
+      if (S.docs[v]?.pages?.[p]) {
+        [w, h] = S.docs[v].pages[p];
+        break;
+      }
+    }
+    const sizeName = paperSizeName(w, h);
+    const diffs = S.diffItems[p]?.length || 0;
+    const diffHtml = diffs > 0 ? `<span class="sheet-item-badge diff">● ${diffs} khác biệt</span>` : '';
+
+    item.innerHTML = `
+      <div class="sheet-item-header">
+        <span class="sheet-item-page"><b>#${p + 1}</b> Bản vẽ ${p + 1}</span>
+        <span class="sheet-item-size">${sizeName}</span>
+      </div>
+      <div class="sheet-thumb-wrap">
+        <img class="sheet-thumb-img" alt="" loading="lazy">
+      </div>
+      ${diffHtml}
+    `;
+
+    // Render thumbnail lazily
+    const imgEl = item.querySelector('.sheet-thumb-img');
+    const docVer = S.docs[1] ? 1 : 2;
+    if (S.docs[docVer]) {
+      api.renderPage(S.docs[docVer].id, p, 24).then(url => {
+        imgEl.src = url;
+      }).catch(() => {});
+    }
+
+    item.onclick = () => setPage(p);
+    listEl.appendChild(item);
+  }
+}
+app.renderSheetList = renderSheetList;
+
+function updateSheetActive() {
+  $$('.sheet-item').forEach(it => {
+    const isAct = +it.dataset.page === S.page;
+    it.classList.toggle('active', isAct);
+    if (isAct) it.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+}
 
 function setPage(p) {
   const n = app.pageCount();
@@ -187,6 +273,7 @@ function setPage(p) {
   if (p === S.page && A.hasImage) return;
   S.page = p;
   S.focus = null;
+  updateSheetActive();
   refreshView();
 }
 app.setPage = setPage;
@@ -235,10 +322,17 @@ function show(view, src, dpi) {
       return;
     }
     const [w1, h1] = S.docs[1].pages[p], [w2, h2] = S.docs[2].pages[p];
-    const q = `d1=${S.docs[1].id}&d2=${S.docs[2].id}&page=${p}&thr=${st.thr}&tol=${st.tol}&dx=${st.dx}&dy=${st.dy}`;
-    view.hiresProvider = (clip, need) => `/api/overlay?${q}&dpi=${need}&clip=${clip.join(',')}`;
-    view.setImage({ url: `/api/overlay?${q}&dpi=${dpi.toFixed(2)}`, w: Math.max(w1, w2), h: Math.max(h1, h2), dpi })
-      .catch(app.fail);
+    view.hiresProvider = (clip, need) => api.renderOverlay({
+      d1: S.docs[1].id, d2: S.docs[2].id, page: p,
+      thr: st.thr, tol: st.tol, dx: st.dx, dy: st.dy, dpi: need, clip
+    });
+    view.setImage({
+      url: api.renderOverlay({
+        d1: S.docs[1].id, d2: S.docs[2].id, page: p,
+        thr: st.thr, tol: st.tol, dx: st.dx, dy: st.dy, dpi: dpi
+      }),
+      w: Math.max(w1, w2), h: Math.max(h1, h2), dpi
+    }).catch(app.fail);
     return;
   }
   const doc = S.docs[src];
@@ -256,8 +350,11 @@ function show(view, src, dpi) {
     return;
   }
   const [w, h] = doc.pages[p];
-  view.hiresProvider = (clip, need) => `/api/docs/${doc.id}/render?page=${p}&dpi=${need}&clip=${clip.join(',')}`;
-  view.setImage({ url: `/api/docs/${doc.id}/render?page=${p}&dpi=${dpi.toFixed(2)}`, w, h, dpi }).catch(app.fail);
+  view.hiresProvider = (clip, need) => api.renderPage(doc.id, p, need, clip);
+  view.setImage({
+    url: api.renderPage(doc.id, p, dpi),
+    w, h, dpi
+  }).catch(app.fail);
 }
 
 // =============================================================== overlays
@@ -405,6 +502,7 @@ async function compareCurrent() {
   } catch (e) { app.fail(e); return; }
   renderTree();
   redrawOverlays();
+  renderSheetList();
   app.showTab('compare');
   app.msg(`Trang ${p + 1}: ${S.diffItems[p].length} khác biệt`);
   toast(`Trang ${p + 1}: <b>${S.diffItems[p].length}</b> khác biệt`, S.diffItems[p].length ? 'warn' : 'ok');
@@ -427,6 +525,7 @@ async function compareAll() {
   } catch (e) { app.fail(e); } finally { pg.close(); }
   renderTree();
   redrawOverlays();
+  renderSheetList();
   app.showTab('compare');
 }
 
@@ -630,9 +729,20 @@ document.addEventListener('keydown', e => {
     z: () => setTool('zone'), Z: () => setTool('zone'), g: () => setTool('highlight'), G: () => setTool('highlight'),
     Delete: app.hlDeleteSelected, '+': () => A.zoomBy(1.25), '=': () => A.zoomBy(1.25), '-': () => A.zoomBy(0.8),
     1: () => setMode('v1'), 2: () => setMode('v2'), 3: () => setMode('side'), 4: () => setMode('overlay'),
+    b: toggleSheets, B: toggleSheets,
   };
   if (map[k]) act(map[k]);
 });
+
+// ----------------------------------------------------------- left sidebar toggle
+function toggleSheets() {
+  const sb = $('#left-sidebar');
+  if (!sb) return;
+  sb.classList.toggle('collapsed');
+  $('#btn-toggle-sheets')?.classList.toggle('active', !sb.classList.contains('collapsed'));
+}
+$('#btn-toggle-sheets')?.addEventListener('click', toggleSheets);
+$('#btn-collapse-left')?.addEventListener('click', toggleSheets);
 
 // ------------------------------------------------------------ drag & drop
 let dragDepth = 0;
@@ -678,6 +788,10 @@ function dragResize(handle, onMove) {
     handle.addEventListener('pointerup', up);
   });
 }
+dragResize($('#left-resizer'), e => {
+  const w = Math.max(180, Math.min(innerWidth * 0.45, e.clientX));
+  $('#left-sidebar').style.width = `${w}px`;
+});
 dragResize($('#dock-resizer'), e => {
   const w = Math.max(380, Math.min(innerWidth * 0.7, innerWidth - e.clientX));
   document.documentElement.style.setProperty('--dock-w', `${w}px`);

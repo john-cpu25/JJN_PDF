@@ -1,56 +1,88 @@
-// Thin client for the FastAPI backend.
+/**
+ * Client-side API Facade.
+ * Intercepts all backend calls and routes them directly to client_core.js (runs 100% in browser).
+ */
+import { clientCore } from './client_core.js';
 import { downloadBlob } from './ui.js';
 
-async function errText(res) {
-  try {
-    const j = await res.json();
-    return typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail);
-  } catch { return `${res.status} ${res.statusText}`; }
-}
-
 export async function getJSON(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(await errText(res));
-  return res.json();
+  if (url.includes('/api/meta')) {
+    return { rules: {}, labels: {}, user: 'Web' };
+  }
+  if (url.startsWith('/api/docs/')) {
+    const id = url.split('/api/docs/')[1].split('/')[0];
+    const doc = clientCore.getDoc(id);
+    if (!doc) throw new Error('Không tìm thấy tài liệu ' + id);
+    return { id: doc.id, name: doc.name, page_count: doc.page_count, pages: doc.pages };
+  }
+  return {};
 }
 
 export async function postJSON(url, body) {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!res.ok) throw new Error(await errText(res));
-  return res.json();
+  if (url.includes('/api/compare')) {
+    return clientCore.comparePages(body);
+  }
+  if (url.includes('/api/read')) {
+    return clientCore.readRegion(body);
+  }
+  if (url.includes('/api/zones/check')) {
+    return clientCore.checkZones(body);
+  }
+  if (url.includes('/api/query')) {
+    return clientCore.queryText(body);
+  }
+  if (url.includes('/api/snap')) {
+    return clientCore.snapHighlight(body);
+  }
+  if (url.includes('/api/text_in')) {
+    const rr = await clientCore.readRegion({ d1: body.doc, page: body.page, rect: body.rect });
+    return { lines: rr.rows.map(x => x.text1 || x.text2).filter(Boolean) };
+  }
+  return {};
 }
 
 export async function del(url) {
-  try { await fetch(url, { method: 'DELETE' }); } catch { /* ignore */ }
+  if (url.startsWith('/api/docs/')) {
+    const id = url.split('/api/docs/')[1].split('/')[0];
+    clientCore.closeDocument(id);
+  }
 }
 
-/** POST JSON, save the returned file. */
 export async function postDownload(url, body, fallbackName = 'download') {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!res.ok) throw new Error(await errText(res));
-  const name = decodeURIComponent(res.headers.get('X-Filename') || fallbackName);
-  downloadBlob(await res.blob(), name);
-  return name;
+  if (url.includes('/api/crop')) {
+    await clientCore.cropExport(body);
+    return 'crop.png';
+  }
+  if (url.includes('/api/highlights/export')) {
+    // Download markup annotations JSON
+    const blob = new Blob([JSON.stringify(body.items || [], null, 2)], { type: 'application/json' });
+    downloadBlob(blob, fallbackName || 'markup.json');
+    return fallbackName;
+  }
+  return fallbackName;
 }
 
-/** multipart upload with progress callback (0..1). */
-export function upload(url, fields, onProgress) {
-  return new Promise((resolve, reject) => {
-    const fd = new FormData();
-    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', url);
-    xhr.responseType = 'json';
-    xhr.upload.onprogress = e => e.lengthComputable && onProgress?.(e.loaded / e.total);
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response);
-      else reject(new Error(xhr.response?.detail || `${xhr.status} ${xhr.statusText}`));
-    };
-    xhr.onerror = () => reject(new Error('Mất kết nối tới server'));
-    xhr.send(fd);
-  });
+export async function upload(url, fields, onProgress) {
+  if (url.includes('/api/batch/file')) {
+    const doc = await clientCore.loadDocument(fields.file, onProgress);
+    const temps = fields.templates ? JSON.parse(fields.templates) : [];
+    const checkRes = await clientCore.checkZones({ d1: doc.id, zones: temps });
+    return { name: doc.name, doc: doc.id, results: checkRes.results };
+  }
+  if (fields.file) {
+    return clientCore.loadDocument(fields.file, onProgress);
+  }
+  throw new Error('No file provided');
 }
 
 export function excel(filename, sheets) {
-  return postDownload('/api/excel', { filename, sheets }, filename);
+  return clientCore.exportExcel(filename, sheets);
+}
+
+export function renderPage(docId, pageIdx, dpi, clip) {
+  return clientCore.renderPage(docId, pageIdx, dpi, clip);
+}
+
+export function renderOverlay(opts) {
+  return clientCore.renderOverlay(opts);
 }
