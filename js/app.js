@@ -16,7 +16,7 @@ const KIND_COL = {
   geo_removed: COL.red, removed: COL.red, geo_added: COL.green, added: COL.green,
   geo_changed: COL.orange, changed: COL.orange,
 };
-const ZONE_COL = { '': COL.purple, OK: COL.green, CHANGED: COL.orange, FAIL: COL.red, 'N/A': COL.grey, DATA: COL.blue };
+const ZONE_COL = { '': COL.purple, OK: COL.green, CHANGED: COL.orange, FAIL: COL.red, 'N/A': COL.grey, DATA: COL.blue, EMPTY: '#8892b0' };
 const TOOL_COL = { pan: COL.blue, crop: COL.cyan, read: COL.yellow, zone: COL.purple, highlight: '#ffe600' };
 const TOOL_HINT = {
   pan: 'Pan: kéo chuột trái để di chuyển, lăn chuột để zoom.',

@@ -45,9 +45,9 @@ export default function install(app) {
       body: `<div class="form-grid wide">
           <label for="zd-name">Tên vùng</label><input type="text" id="zd-name" value="${esc(name)}">
           <label for="zd-rule">Quy tắc</label><select id="zd-rule">${opts}</select>
-          <label for="zd-exp">Giá trị</label><input type="text" id="zd-exp" value="${esc(expected)}">
+          <label for="zd-exp">Giá trị</label><input type="text" id="zd-exp" value="${esc(expected)}" placeholder="VD: MẶT CẮT 4-4 hoặc để trống">
           <span></span><div class="hint" id="zd-hint"></div></div>
-        ${preview ? `<div class="hint">Text hiện có trong vùng:</div><pre>${esc(preview)}</pre>` : ''}`,
+        ${preview ? `<div class="hint" style="margin-top:8px;font-weight:600;color:var(--c-accent)">✓ Text trích xuất được từ vùng:</div><pre style="max-height:100px;overflow:auto;background:var(--bg-panel);padding:6px;border-radius:4px;border:1px solid var(--border);user-select:all">${esc(preview)}</pre>` : '<div class="hint" style="margin-top:8px;color:var(--muted)">⚠️ Không tìm thấy text số hóa trong vùng. Hệ thống sẽ tự chạy OCR nếu cần.</div>'}`,
       buttons: [{ label: 'Huỷ', value: null }, { label: 'OK', value: true, primary: true }],
       onOpen: root => {
         const upd = () => {
@@ -116,8 +116,11 @@ export default function install(app) {
     let preview = '';
     if (d && p < d.page_count) {
       const rr = d === S.docs[1] ? r1 : app.toView(r1, 1, 2);
-      try { preview = (await api.postJSON('/api/text_in', { doc: d.id, page: p, rect: rr })).lines.join('\n'); }
-      catch { /* ignore */ }
+      app.msg('Đang trích xuất text trong vùng (chạy OCR nếu là bản vẽ scan)...', 3000);
+      try {
+        const res = await api.postJSON('/api/text_in', { doc: d.id, page: p, rect: rr });
+        preview = (res.lines || []).join('\n');
+      } catch { /* ignore */ }
     }
     const v = await zoneDialog({
       name: `Z${String(S.zones.length + 1).padStart(2, '0')}`, preview,
@@ -170,8 +173,8 @@ export default function install(app) {
         <td class="c-t2 mono" title="${esc(z.text_v2)}">${esc(oneLine(z.text_v2))}</td></tr>`;
     }).join('') : '<tr><td colspan="8" class="empty">Chưa có vùng nào</td></tr>';
     const parts = [`<b>${S.zones.length}</b> vùng`];
-    for (const st of ['OK', 'CHANGED', 'FAIL', 'DATA', 'N/A']) {
-      if (cnt[st]) parts.push(`<span style="color:${ZONE_COL[st]}">${st}: <b>${cnt[st]}</b></span>`);
+    for (const st of ['OK', 'CHANGED', 'FAIL', 'DATA', 'EMPTY', 'N/A']) {
+      if (cnt[st]) parts.push(`<span style="color:${ZONE_COL[st] || app.COL.grey}">${st}: <b>${cnt[st]}</b></span>`);
     }
     $('#sum-zones').innerHTML = parts.join(' &nbsp;·&nbsp; ');
     const t = $('#tbl-zones');

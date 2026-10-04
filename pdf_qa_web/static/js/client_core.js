@@ -31,19 +31,28 @@ class ClientDoc {
     for (const item of tc.items) {
       if (!item.str || !item.str.trim()) continue;
       const [a, b, c, d, e, f] = item.transform;
-      const h = Math.hypot(b, d) || item.height || 12;
-      const w = item.width || (item.str.length * h * 0.6);
+      const scaleX = Math.hypot(a, b) || 1;
+      const scaleY = Math.hypot(c, d) || 1;
+      const fontH = item.height || scaleY || 12;
+      const fontW = item.width || (item.str.length * fontH * 0.6);
 
-      // Four corners in PDF coordinates
-      const vp0 = vp.convertToViewportPoint(e, f);
-      const vp1 = vp.convertToViewportPoint(a * w + e, b * w + f);
-      const vp2 = vp.convertToViewportPoint(c * h + e, d * h + f);
-      const vp3 = vp.convertToViewportPoint(a * w + c * h + e, b * w + d * h + f);
+      // Unit direction vectors in PDF user space
+      const ux = a / scaleX, uy = b / scaleX;
+      const vx = c / scaleY, vy = d / scaleY;
 
-      const x0 = Math.min(vp0[0], vp1[0], vp2[0], vp3[0]);
-      const x1 = Math.max(vp0[0], vp1[0], vp2[0], vp3[0]);
-      const y0 = Math.min(vp0[1], vp1[1], vp2[1], vp3[1]);
-      const y1 = Math.max(vp0[1], vp1[1], vp2[1], vp3[1]);
+      const dxAdv = ux * fontW, dyAdv = uy * fontW;
+      const dxH = vx * fontH, dyH = vy * fontH;
+
+      // Four corners in PDF user space converted to display viewport space
+      const p0 = vp.convertToViewportPoint(e, f);
+      const p1 = vp.convertToViewportPoint(e + dxAdv, f + dyAdv);
+      const p2 = vp.convertToViewportPoint(e + dxH, f + dyH);
+      const p3 = vp.convertToViewportPoint(e + dxAdv + dxH, f + dyAdv + dyH);
+
+      const x0 = Math.min(p0[0], p1[0], p2[0], p3[0]);
+      const x1 = Math.max(p0[0], p1[0], p2[0], p3[0]);
+      const y0 = Math.min(p0[1], p1[1], p2[1], p3[1]);
+      const y1 = Math.max(p0[1], p1[1], p2[1], p3[1]);
 
       // Split into space-separated words
       const parts = item.str.split(/\s+/);
@@ -437,8 +446,55 @@ class ClientCore {
       return lines;
     };
 
-    const lines1 = await extractLines(doc1, 0, 0);
-    const lines2 = await extractLines(doc2, -dx, -dy);
+    const ocrRegion = async (doc, offX = 0, offY = 0) => {
+      if (!doc || typeof window === 'undefined' || !window.Tesseract) return [];
+      try {
+        const rw = rx1 - rx0;
+        const rh = ry1 - ry0;
+        if (rw < 4 || rh < 4) return [];
+
+        const scale = 2.5; // High resolution for sharp OCR
+        const pg = await doc.pdfDoc.getPage(p + 1);
+        const vp = pg.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(rw * scale));
+        canvas.height = Math.max(1, Math.round(rh * scale));
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const clipX = (rx0 - offX) * scale;
+        const clipY = (ry0 - offY) * scale;
+        ctx.save();
+        ctx.translate(-clipX, -clipY);
+        await pg.render({ canvasContext: ctx, viewport: vp }).promise;
+        ctx.restore();
+
+        let rawText = '';
+        if (window.Tesseract.recognize) {
+          const res = await window.Tesseract.recognize(canvas, 'vie+eng', {
+            logger: () => {}
+          });
+          rawText = res?.data?.text || '';
+        }
+        return rawText.split('\n').map(l => l.trim()).filter(Boolean);
+      } catch (err) {
+        console.warn('OCR region error:', err);
+        return [];
+      }
+    };
+
+    let lines1 = await extractLines(doc1, 0, 0);
+    if (!lines1.length && doc1 && typeof window !== 'undefined' && window.Tesseract) {
+      const ocrLines = await ocrRegion(doc1, 0, 0);
+      if (ocrLines.length) lines1 = ocrLines;
+    }
+
+    let lines2 = await extractLines(doc2, -dx, -dy);
+    if (!lines2.length && doc2 && typeof window !== 'undefined' && window.Tesseract) {
+      const ocrLines = await ocrRegion(doc2, -dx, -dy);
+      if (ocrLines.length) lines2 = ocrLines;
+    }
 
     const maxLen = Math.max(lines1.length, lines2.length);
     const rows = [];
@@ -472,24 +528,46 @@ class ClientCore {
 
       if (rule === 'compare') {
         if (!d1 || !d2) {
-          status = 'DATA';
-          detail = val ? 'Đã đọc text' : 'Vùng trống';
+          status = val ? 'DATA' : 'EMPTY';
+          detail = val ? `Đã đọc: "${val}"` : 'Vùng trống';
         } else if (text1 === text2) {
           status = 'OK';
-          detail = 'Trùng khớp';
+          detail = text1 ? 'Trùng khớp' : 'Hai bản đều trống';
         } else {
           status = 'CHANGED';
           detail = `${text1 || '—'} ≠ ${text2 || '—'}`;
         }
       } else if (rule === 'extract') {
-        status = 'DATA';
-        detail = val ? 'Đã đọc text' : 'Vùng trống';
-      } else if (rule === 'equals') {
-        status = val.toLowerCase() === expected.toLowerCase() ? 'OK' : 'FAIL';
-        detail = status === 'OK' ? `Bằng: "${val}"` : `Khác: "${val}" ≠ "${expected}"`;
+        status = val ? 'DATA' : 'EMPTY';
+        detail = val ? `Đã trích xuất: "${val}"` : 'Không có text trong vùng';
       } else if (rule === 'contains') {
-        status = val.toLowerCase().includes(expected.toLowerCase()) ? 'OK' : 'FAIL';
-        detail = status === 'OK' ? `Chứa: "${expected}"` : `Không chứa: "${expected}"`;
+        if (!expected) {
+          status = val ? 'DATA' : 'EMPTY';
+          detail = val ? `Trích xuất: "${val}"` : 'Không có text trong vùng';
+        } else if (!val) {
+          status = 'FAIL';
+          detail = `Không tìm thấy text (cần: "${expected}")`;
+        } else if (val.toLowerCase().includes(expected.toLowerCase())) {
+          status = 'OK';
+          detail = `Chứa: "${expected}"`;
+        } else {
+          status = 'FAIL';
+          detail = `Không chứa: "${expected}" (thực tế: "${val}")`;
+        }
+      } else if (rule === 'equals') {
+        if (!expected) {
+          status = val ? 'DATA' : 'EMPTY';
+          detail = val ? `Trích xuất: "${val}"` : 'Không có text trong vùng';
+        } else if (!val) {
+          status = 'FAIL';
+          detail = `Vùng trống ≠ "${expected}"`;
+        } else if (val.toLowerCase() === expected.toLowerCase()) {
+          status = 'OK';
+          detail = `Bằng: "${val}"`;
+        } else {
+          status = 'FAIL';
+          detail = `Khác: "${val}" ≠ "${expected}"`;
+        }
       } else if (rule === 'regex') {
         try {
           const re = new RegExp(expected, 'i');
@@ -501,7 +579,7 @@ class ClientCore {
         }
       } else if (rule === 'not_empty') {
         status = val.length > 0 ? 'OK' : 'FAIL';
-        detail = status === 'OK' ? `Có text (${val.length} ký tự)` : 'Vùng để trống';
+        detail = status === 'OK' ? `Có text (${val.length} ký tự): "${val}"` : 'Vùng để trống (không có text)';
       } else if (rule === 'number_range') {
         const nums = (val.match(/[-+]?\d*\.?\d+/g) || []).map(Number);
         const parts = expected.split(/[-–—,]/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
