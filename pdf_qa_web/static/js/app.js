@@ -726,8 +726,14 @@ document.addEventListener('keydown', e => {
     PageUp: () => setPage(S.page - 1), PageDown: () => setPage(S.page + 1),
     f: app.fit, F: app.fit, h: () => setTool('pan'), H: () => setTool('pan'), Escape: () => { t.blur?.(); setTool('pan'); },
     c: () => setTool('crop'), C: () => setTool('crop'), r: () => setTool('read'), R: () => setTool('read'),
-    z: () => setTool('zone'), Z: () => setTool('zone'), g: () => setTool('highlight'), G: () => setTool('highlight'),
-    Delete: app.hlDeleteSelected, '+': () => A.zoomBy(1.25), '=': () => A.zoomBy(1.25), '-': () => A.zoomBy(0.8),
+    Delete: () => {
+      if (document.querySelector('#panel-zones.active') || S.tool === 'zone') {
+        app.deleteZones?.();
+      } else {
+        app.hlDeleteSelected?.();
+      }
+    },
+    '+': () => A.zoomBy(1.25), '=': () => A.zoomBy(1.25), '-': () => A.zoomBy(0.8),
     1: () => setMode('v1'), 2: () => setMode('v2'), 3: () => setMode('side'), 4: () => setMode('overlay'),
     b: toggleSheets, B: toggleSheets,
   };

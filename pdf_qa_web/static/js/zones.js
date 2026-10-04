@@ -237,6 +237,31 @@ export default function install(app) {
     refreshZoneTable();
     app.redrawOverlays();
   }
+  app.deleteZones = deleteZones;
+
+  app.deleteZone = (z) => {
+    const idx = S.zones.indexOf(z);
+    if (idx >= 0) {
+      const name = z.name;
+      S.zones.splice(idx, 1);
+      refreshZoneTable();
+      app.redrawOverlays();
+      toast(`Đã xoá vùng <b>${esc(name)}</b>`, 'ok');
+    }
+  };
+
+  app.editSpecificZone = async (z) => {
+    const v = await zoneDialog({
+      name: z.name, rule: z.rule, expected: z.expected, preview: z.text_v2 || z.text_v1,
+      allowCompare: !!(S.docs[1] && S.docs[2]),
+    });
+    if (!v) return;
+    const fam = allPages() ? S.zones.filter(x => x.name === z.name) : [z];
+    for (const x of fam) Object.assign(x, v);
+    try { await app.busy(() => checkZones(fam)); } catch (e) { app.fail(e); }
+    refreshZoneTable();
+    app.redrawOverlays();
+  };
 
   function saveTemplate() {
     if (!S.zones.length) return;

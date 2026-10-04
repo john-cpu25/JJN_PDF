@@ -97,22 +97,45 @@ export default function install(app) {
       }
     }
     return null;
+  function hitTestZone(view, [x, y]) {
+    const src = S.viewSrc.get(view) ?? 1;
+    for (let i = S.zones.length - 1; i >= 0; i--) {
+      const z = S.zones[i];
+      if (z.page !== S.page) continue;
+      const v = app.toView(z.rect, 1, src);
+      if (x >= v[0] && x <= v[2] && y >= v[1] && y <= v[3]) return z;
+    }
+    return null;
   }
 
   app.onViewContext = (view, pt, cx, cy) => {
     const h = hitTest(view, pt);
-    if (!h) return;
-    S.hlSel = h.id;
-    refresh();
-    app.redrawOverlays();
-    const items = [
-      { label: '💬 Ghi chú…', action: () => comment(h) },
-      { label: '🎨 Đổi màu', sub: SWATCHES.map(([c, n]) => ({ html: `<span class="sw-dot" style="background:${c}"></span> ${n}`, action: () => recolor(h, c) })) },
-      { label: '◐ Độ đậm', sub: [25, 45, 65, 85].map(o => ({ label: `${o}%`, action: () => { h.opacity = o / 100; app.redrawOverlays(); } })) },
-    ];
-    if (h.text) items.push({ label: '📋 Copy text', action: () => navigator.clipboard.writeText(h.text).then(() => toast('Đã copy text', 'ok')) });
-    items.push('-', { label: '🗑 Xoá', action: () => remove(h) });
-    ui.contextMenu(items, cx, cy);
+    if (h) {
+      S.hlSel = h.id;
+      refresh();
+      app.redrawOverlays();
+      const items = [
+        { label: '💬 Ghi chú…', action: () => comment(h) },
+        { label: '🎨 Đổi màu', sub: SWATCHES.map(([c, n]) => ({ html: `<span class="sw-dot" style="background:${c}"></span> ${n}`, action: () => recolor(h, c) })) },
+        { label: '◐ Độ đậm', sub: [25, 45, 65, 85].map(o => ({ label: `${o}%`, action: () => { h.opacity = o / 100; app.redrawOverlays(); } })) },
+      ];
+      if (h.text) items.push({ label: '📋 Copy text', action: () => navigator.clipboard.writeText(h.text).then(() => toast('Đã copy text', 'ok')) });
+      items.push('-', { label: '🗑 Xoá', action: () => remove(h) });
+      ui.contextMenu(items, cx, cy);
+      return;
+    }
+
+    const z = hitTestZone(view, pt);
+    if (z) {
+      const items = [
+        { label: `✏ Sửa vùng ${z.name}…`, action: () => app.editSpecificZone?.(z) },
+      ];
+      const text = z.text_v2 || z.text_v1;
+      if (text) items.push({ label: '📋 Copy text', action: () => navigator.clipboard.writeText(text).then(() => toast('Đã copy text', 'ok')) });
+      items.push('-', { label: `🗑 Xoá vùng ${z.name}`, action: () => app.deleteZone?.(z) });
+      ui.contextMenu(items, cx, cy);
+      return;
+    }
   };
 
   async function comment(h) {
