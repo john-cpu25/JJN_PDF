@@ -576,7 +576,7 @@ textarea { resize: vertical; font-family: var(--mono); font-size: 12px; }
 .ctx-item:hover > .ctx-sub { display: block; }
 
 /* ---------------------------------------------------------- drop overlay */
-.drop-overlay { position: fixed; inset: 0; z-index: 300; display: none; place-items: center; background: rgba(10, 14, 24, .7); backdrop-filter: blur(6px); }
+.drop-overlay { position: fixed; inset: 0; z-index: 300; display: none; place-items: center; background: rgba(10, 14, 24, .7); backdrop-filter: blur(6px); pointer-events: none; }
 .drop-overlay.show { display: grid; }
 .drop-card { padding: 40px 60px; text-align: center; border: 2px dashed #6a8dff; border-radius: 20px; background: rgba(79, 140, 255, .08); font-size: 17px; font-weight: 600; color: #fff; display: flex; flex-direction: column; gap: 8px; }
 .drop-card small { color: var(--muted); font-weight: 400; font-size: 13px; }

@@ -18,14 +18,14 @@
 
     <div class="tb-group">
       <button class="tb icon active" id="btn-toggle-sheets" title="Ẩn/Hiện danh sách bản vẽ (B)">📑</button>
-      <button class="tb doc-btn" id="btn-open1" title="Mở file PDF 1 (Ctrl+O)">
+      <label class="tb doc-btn" id="btn-open1" title="Mở file PDF 1 (Ctrl+O)" style="cursor:pointer">
+        <input type="file" id="file1" accept=".pdf,application/pdf" style="position:fixed;top:-1000px;left:-1000px;opacity:0;pointer-events:none">
         <span class="dot dot-v1"></span><span class="doc-label" id="lbl-doc1">PDF 1</span>
-      </button>
-      <button class="tb doc-btn" id="btn-open2" title="Mở file PDF 2 (Ctrl+Shift+O)">
+      </label>
+      <label class="tb doc-btn" id="btn-open2" title="Mở file PDF 2 (Ctrl+Shift+O)" style="cursor:pointer">
+        <input type="file" id="file2" accept=".pdf,application/pdf" style="position:fixed;top:-1000px;left:-1000px;opacity:0;pointer-events:none">
         <span class="dot dot-v2"></span><span class="doc-label" id="lbl-doc2">PDF 2</span>
-      </button>
-      <input type="file" id="file1" accept=".pdf,application/pdf" hidden>
-      <input type="file" id="file2" accept=".pdf,application/pdf" hidden>
+      </label>
     </div>
 
     <div class="tb-sep"></div>

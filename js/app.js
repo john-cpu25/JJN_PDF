@@ -129,8 +129,12 @@ app.setTabCount = (name, n) => {
 // ============================================================== documents
 async function openDoc(ver, file) {
   if (!file) {
-    [file] = await ui.pickFile($(`#file${ver}`));
-    if (!file) return;
+    const input = $(`#file${ver}`);
+    if (input) {
+      input.click();
+      return;
+    }
+    return;
   }
   if (!/\.pdf$/i.test(file.name)) { toast('Chỉ hỗ trợ file PDF', 'warn'); return; }
   const pending = S.highlights.filter(h => h.ver === ver);
@@ -693,8 +697,22 @@ async function doCrop(r1) {
 app.doCrop = doCrop;
 
 // ================================================================ toolbar
-$('#btn-open1').onclick = () => openDoc(1);
-$('#btn-open2').onclick = () => openDoc(2);
+$('#file1')?.addEventListener('change', e => {
+  const f = e.target.files?.[0];
+  if (f) openDoc(1, f);
+  e.target.value = '';
+});
+$('#file2')?.addEventListener('change', e => {
+  const f = e.target.files?.[0];
+  if (f) openDoc(2, f);
+  e.target.value = '';
+});
+$('#btn-open1')?.addEventListener('click', e => {
+  if (e.target.tagName !== 'INPUT') $(`#file1`)?.click();
+});
+$('#btn-open2')?.addEventListener('click', e => {
+  if (e.target.tagName !== 'INPUT') $(`#file2`)?.click();
+});
 $$('#mode-seg .seg-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 $$('#tool-seg .seg-btn').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
 $('#btn-prev').onclick = () => setPage(S.page - 1);
@@ -753,15 +771,34 @@ $('#btn-collapse-left')?.addEventListener('click', toggleSheets);
 // ------------------------------------------------------------ drag & drop
 let dragDepth = 0;
 const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
-window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; dragDepth++; $('#drop-overlay').classList.add('show'); });
-window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('#drop-overlay').classList.remove('show'); } });
-window.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+
+['dragenter', 'dragover'].forEach(type => {
+  window.addEventListener(type, e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (type === 'dragenter') {
+      dragDepth++;
+      $('#drop-overlay')?.classList.add('show');
+    }
+  });
+});
+
+window.addEventListener('dragleave', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  if (--dragDepth <= 0) {
+    dragDepth = 0;
+    $('#drop-overlay')?.classList.remove('show');
+  }
+});
+
 window.addEventListener('drop', async e => {
   if (!hasFiles(e)) return;
   e.preventDefault();
   dragDepth = 0;
-  $('#drop-overlay').classList.remove('show');
-  const files = [...e.dataTransfer.files].filter(f => /\.pdf$/i.test(f.name));
+  $('#drop-overlay')?.classList.remove('show');
+  const files = [...(e.dataTransfer?.files || [])].filter(f => /\.pdf$/i.test(f.name));
   if (!files.length) { toast('Chỉ hỗ trợ file PDF', 'warn'); return; }
   if (files.length >= 2) {
     files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));

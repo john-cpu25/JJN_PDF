@@ -143,12 +143,14 @@ export function contextMenu(items, x, y) {
 document.addEventListener('mousedown', e => { if (ctxEl && !ctxEl.contains(e.target)) closeContext(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeContext(); });
 
-// ------------------------------------------------------------ files / misc
 export function pickFile(input) {
   return new Promise(resolve => {
     input.value = '';
-    input.onchange = () => resolve([...input.files]);
-    input.oncancel = () => resolve([]);
+    const onCh = () => {
+      input.removeEventListener('change', onCh);
+      resolve([...(input.files || [])]);
+    };
+    input.addEventListener('change', onCh, { once: true });
     input.click();
   });
 }
