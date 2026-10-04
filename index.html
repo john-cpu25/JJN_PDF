@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDF QA Viewer — So sánh &amp; kiểm tra bản vẽ (Web)</title>
-  <meta name="description" content="So sánh bản vẽ PDF Ver1/Ver2 (overlay, diff nét vẽ & text), crop vector, đọc data, vùng check, query và highlight như Bluebeam — ngay trên trình duyệt.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234f8cff'/><stop offset='1' stop-color='%238a5cff'/></linearGradient></defs><rect x='4' y='4' width='24' height='24' rx='6' transform='rotate(45 16 16)' fill='url(%23g)'/></svg>">
+  <title>JNN PDF — So sánh &amp; kiểm tra bản vẽ</title>
+  <meta name="description" content="JNN PDF — So sánh bản vẽ PDF Ver1/Ver2 (overlay, diff nét vẽ & text), crop vector, đọc data, vùng check, query và highlight như Bluebeam — ngay trên trình duyệt.">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%2338bdf8'/><stop offset='45%25' stop-color='%234f8cff'/><stop offset='100%25' stop-color='%239333ea'/></linearGradient></defs><rect x='2' y='2' width='28' height='28' rx='7' fill='url(%23g)'/><rect x='2.5' y='2.5' width='27' height='27' rx='6.5' stroke='rgba(255,255,255,0.3)' stroke-width='1' fill='none'/><path d='M6 10h3.5v7.8a2.5 2.5 0 0 1-2.5 2.5H6' fill='none' stroke='%23ffffff' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'/><path d='M12.8 20.3V10l5.4 10.3V10' fill='none' stroke='%23ffffff' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'/><path d='M20.4 20.3V10l5.4 10.3V10' fill='none' stroke='%23ffffff' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -14,7 +15,24 @@
 <body>
   <!-- ================================================================ TOOLBAR -->
   <header class="topbar" id="topbar">
-    <h1 class="logo"><span class="logo-mark"></span>PDF QA <small>web</small></h1>
+    <h1 class="logo" title="JNN PDF">
+      <svg class="logo-icon" viewBox="0 0 32 32" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="jnn-logo-g" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#38bdf8"/>
+            <stop offset="45%" stop-color="#4f8cff"/>
+            <stop offset="100%" stop-color="#9333ea"/>
+          </linearGradient>
+        </defs>
+        <rect x="2" y="2" width="28" height="28" rx="7" fill="url(#jnn-logo-g)" />
+        <rect x="2.5" y="2.5" width="27" height="27" rx="6.5" stroke="rgba(255,255,255,0.3)" stroke-width="1" fill="none"/>
+        <path d="M6 10h3.5v7.8a2.5 2.5 0 0 1-2.5 2.5H6" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M12.8 20.3V10l5.4 10.3V10" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M20.4 20.3V10l5.4 10.3V10" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>JNN PDF</span>
+      <small>PRO</small>
+    </h1>
 
     <div class="tb-group">
       <button class="tb icon active" id="btn-toggle-sheets" title="Ẩn/Hiện danh sách bản vẽ (B)">📑</button>

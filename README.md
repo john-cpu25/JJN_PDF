@@ -1,6 +1,6 @@
-# PDF QA Viewer
+# JNN PDF — So sánh & Kiểm tra Bản vẽ
 
-Phần mềm desktop (Python + PySide6 + PyMuPDF) để so sánh bản vẽ Ver1/Ver2 và kiểm tra (QA) nội dung bản vẽ.
+Phần mềm (Desktop & Web) để so sánh bản vẽ Ver1/Ver2 và kiểm tra (QA) nội dung bản vẽ kỹ thuật / PDF.
 
 ## Chạy
 ```

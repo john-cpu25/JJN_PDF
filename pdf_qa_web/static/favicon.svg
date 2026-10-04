@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="jnn-g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="45%" stop-color="#4f8cff"/>
+      <stop offset="100%" stop-color="#9333ea"/>
+    </linearGradient>
+    <filter id="jnn-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <!-- Background with subtle glossy border -->
+  <rect x="2" y="2" width="28" height="28" rx="7" fill="url(#jnn-g)"/>
+  <rect x="2.5" y="2.5" width="27" height="27" rx="6.5" stroke="rgba(255,255,255,0.3)" stroke-width="1" fill="none"/>
+  <!-- JNN Monogram -->
+  <g filter="url(#jnn-glow)">
+    <!-- J -->
+    <path d="M6 10h3.5v7.8a2.5 2.5 0 0 1-2.5 2.5H6" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- N1 -->
+    <path d="M12.8 20.3V10l5.4 10.3V10" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- N2 -->
+    <path d="M20.4 20.3V10l5.4 10.3V10" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

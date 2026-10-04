@@ -23,7 +23,7 @@ def apply_theme(app: QApplication):
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("PDF QA Viewer")
+    app.setApplicationName("JNN PDF")
     apply_theme(app)
     w = MainWindow()
     geo = app.primaryScreen().availableGeometry()

@@ -224,7 +224,7 @@ async def _lifespan(_app):
             store.close(did)
 
 
-app = FastAPI(title="PDF QA Web", version="1.0.0", lifespan=_lifespan)
+app = FastAPI(title="JNN PDF Web", version="1.0.0", lifespan=_lifespan)
 
 
 @app.exception_handler(Exception)

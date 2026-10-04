@@ -66,15 +66,24 @@ p.muted { margin: 0; }
 .topbar::-webkit-scrollbar { display: none; }
 .logo {
   display: flex; align-items: center; gap: 9px;
-  margin: 0 8px 0 2px; font-size: 15px; font-weight: 700; letter-spacing: .2px; white-space: nowrap; color: #fff;
+  margin: 0 8px 0 2px; font-size: 15.5px; font-weight: 700; letter-spacing: .3px; white-space: nowrap; color: #fff;
+  user-select: none;
 }
-.logo small { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: rgba(138, 92, 255, .18); color: #c3a9ff; text-transform: uppercase; letter-spacing: .8px; }
-.logo-mark {
-  width: 16px; height: 16px; border-radius: 4px; transform: rotate(45deg);
-  background: var(--grad); box-shadow: 0 0 18px rgba(106, 141, 255, .7);
-  animation: pulse 3.5s ease-in-out infinite;
+.logo-icon {
+  width: 22px; height: 22px; flex: none; border-radius: 6px;
+  filter: drop-shadow(0 0 10px rgba(79, 140, 255, 0.55));
+  transition: transform .2s ease, filter .2s ease;
 }
-@keyframes pulse { 50% { box-shadow: 0 0 6px rgba(106, 141, 255, .3); } }
+.logo:hover .logo-icon {
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 14px rgba(79, 140, 255, 0.8));
+}
+.logo small {
+  font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 6px;
+  background: linear-gradient(135deg, rgba(79, 140, 255, .25), rgba(147, 51, 234, .25));
+  border: 1px solid rgba(147, 51, 234, .4);
+  color: #c4b5fd; text-transform: uppercase; letter-spacing: .8px;
+}
 .tb-group { display: flex; align-items: center; gap: 4px; }
 .tb-sep { width: 1px; height: 24px; background: var(--line-2); margin: 0 6px; flex: none; }
 .tb-spacer { flex: 1; min-width: 8px; }

@@ -411,7 +411,7 @@ class MainWindow(QMainWindow):
 
     # ================================================================== UI ==
     def _build_ui(self):
-        self.setWindowTitle("PDF QA Viewer — So sánh & kiểm tra bản vẽ")
+        self.setWindowTitle("JNN PDF — So sánh & kiểm tra bản vẽ")
         self.resize(1680, 980)
         self.setAcceptDrops(True)
 
@@ -450,7 +450,7 @@ class MainWindow(QMainWindow):
         self.tb = QToolBar("Main")
         self.tb.setMovable(False)
         self.addToolBar(Qt.TopToolBarArea, self.tb)
-        logo = QLabel("◆ PDF QA")
+        logo = QLabel("◆ JNN PDF")
         logo.setObjectName("logo")
         self.tb.addWidget(logo)
 
