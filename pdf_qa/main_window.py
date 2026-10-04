@@ -10,7 +10,7 @@ from contextlib import contextmanager
 
 import pymupdf as fitz
 from PySide6.QtCore import Qt, QRectF, QPointF, QTimer
-from PySide6.QtGui import QColor, QFont, QKeySequence, QPixmap, QShortcut, QBrush
+from PySide6.QtGui import QColor, QFont, QKeySequence, QPixmap, QShortcut, QBrush, QIcon
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QButtonGroup, QCheckBox, QColorDialog, QComboBox,
     QDialog, QDialogButtonBox, QDockWidget, QDoubleSpinBox, QFileDialog, QFormLayout,
@@ -412,6 +412,9 @@ class MainWindow(QMainWindow):
     # ================================================================== UI ==
     def _build_ui(self):
         self.setWindowTitle("JNN PDF — So sánh & kiểm tra bản vẽ")
+        ico_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "favicon.ico")
+        if os.path.exists(ico_path):
+            self.setWindowIcon(QIcon(ico_path))
         self.resize(1680, 980)
         self.setAcceptDrops(True)
 

@@ -1,7 +1,7 @@
-"""Entry point:  python -m pdf_qa [ver1.pdf] [ver2.pdf]"""
+import os
 import sys
 
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtGui import QColor, QPalette, QIcon
 from PySide6.QtWidgets import QApplication
 
 from .main_window import QSS, MainWindow
@@ -24,6 +24,9 @@ def apply_theme(app: QApplication):
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("JNN PDF")
+    ico_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "favicon.ico")
+    if os.path.exists(ico_path):
+        app.setWindowIcon(QIcon(ico_path))
     apply_theme(app)
     w = MainWindow()
     geo = app.primaryScreen().availableGeometry()
