@@ -132,6 +132,7 @@ async function openDoc(ver, file) {
   if (!file) {
     const input = $(`#file${ver}`);
     if (input) {
+      input.value = '';
       input.click();
       return;
     }
@@ -747,6 +748,21 @@ $('#btn-sync-toggle')?.addEventListener('click', () => {
     toast('Chế độ song song: <b>Lăn chuột & di chuyển độc lập</b>', 'info');
   }
 });
+
+$('#btn-open1')?.addEventListener('click', () => openDoc(1));
+$('#btn-open2')?.addEventListener('click', () => openDoc(2));
+
+$('#file1')?.addEventListener('change', e => {
+  const f = e.target.files?.[0];
+  if (f) openDoc(1, f);
+  e.target.value = '';
+});
+$('#file2')?.addEventListener('change', e => {
+  const f = e.target.files?.[0];
+  if (f) openDoc(2, f);
+  e.target.value = '';
+});
+
 $$('#mode-seg .seg-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 $$('#tool-seg .seg-btn').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
 $('#btn-prev').onclick = () => setPage(S.page - 1);

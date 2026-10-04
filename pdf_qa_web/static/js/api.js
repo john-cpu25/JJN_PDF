@@ -89,7 +89,28 @@ export async function upload(url, fields, onProgress) {
     return { name: doc.name, doc: doc.id, results: checkRes.results };
   }
   if (fields.file) {
-    return clientCore.loadDocument(fields.file, onProgress);
+    if (window.pdfjsLib) {
+      try {
+        return await clientCore.loadDocument(fields.file, onProgress);
+      } catch (e) {
+        console.warn('clientCore.loadDocument failed, falling back to server upload...', e);
+      }
+    }
+    // Backend fallback
+    return new Promise((resolve, reject) => {
+      const fd = new FormData();
+      for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.responseType = 'json';
+      xhr.upload.onprogress = e => e.lengthComputable && onProgress?.(e.loaded / e.total);
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response);
+        else reject(new Error(xhr.response?.detail || `${xhr.status} ${xhr.statusText}`));
+      };
+      xhr.onerror = () => reject(new Error('Mất kết nối tới server'));
+      xhr.send(fd);
+    });
   }
   throw new Error('No file provided');
 }
@@ -99,9 +120,22 @@ export function excel(filename, sheets) {
 }
 
 export function renderPage(docId, pageIdx, dpi, clip) {
-  return clientCore.renderPage(docId, pageIdx, dpi, clip);
+  if (clientCore.getDoc(docId)) {
+    return clientCore.renderPage(docId, pageIdx, dpi, clip);
+  }
+  let u = `/api/docs/${encodeURIComponent(docId)}/render?page=${pageIdx}&dpi=${dpi}`;
+  if (clip) u += `&clip=${clip.join(',')}`;
+  return u;
 }
 
 export function renderOverlay(opts) {
-  return clientCore.renderOverlay(opts);
+  if (clientCore.getDoc(opts.d1)) {
+    return clientCore.renderOverlay(opts);
+  }
+  const q = new URLSearchParams({
+    d1: opts.d1, d2: opts.d2, page: opts.page,
+    thr: opts.thr, tol: opts.tol, dx: opts.dx, dy: opts.dy, dpi: opts.dpi
+  });
+  if (opts.clip) q.set('clip', opts.clip.join(','));
+  return `/api/overlay?${q.toString()}`;
 }

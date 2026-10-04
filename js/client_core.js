@@ -84,19 +84,27 @@ class ClientCore {
     const pdfjs = window.pdfjsLib;
     if (!pdfjs) throw new Error('Thư viện PDF.js chưa sẵn sàng.');
 
-    const loadingTask = pdfjs.getDocument({
-      data: new Uint8Array(ab),
-      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
-      cMapPacked: true,
-    });
-
-    if (onProgress) {
-      loadingTask.onProgress = p => {
-        if (p.total > 0) onProgress(p.loaded / p.total);
-      };
+    let pdfDoc;
+    try {
+      const loadingTask = pdfjs.getDocument({
+        data: new Uint8Array(ab),
+        cMapPacked: true,
+      });
+      if (onProgress) {
+        loadingTask.onProgress = p => {
+          if (p.total > 0) onProgress(p.loaded / p.total);
+        };
+      }
+      pdfDoc = await loadingTask.promise;
+    } catch (workerErr) {
+      console.warn('PDF.js worker failed, falling back to disableWorker...', workerErr);
+      const fallbackTask = pdfjs.getDocument({
+        data: new Uint8Array(ab),
+        cMapPacked: true,
+        disableWorker: true,
+      });
+      pdfDoc = await fallbackTask.promise;
     }
-
-    const pdfDoc = await loadingTask.promise;
     const pages = [];
     for (let i = 1; i <= pdfDoc.numPages; i++) {
       const page = await pdfDoc.getPage(i);

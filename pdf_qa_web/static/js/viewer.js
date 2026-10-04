@@ -48,14 +48,8 @@ export class Viewer {
           <div class="ph-title">Chưa mở bản vẽ PDF</div>
           <div class="ph-text">Kéo thả file PDF vào đây hoặc bấm chọn file:</div>
           <div class="ph-actions">
-            <label class="btn primary ph-btn-v1" style="cursor:pointer">
-              <input type="file" accept=".pdf,application/pdf" style="position:fixed;top:-1000px;left:-1000px;opacity:0;pointer-events:none" class="ph-file1">
-              📂 Mở PDF 1 (Ver1)
-            </label>
-            <label class="btn ph-btn-v2" style="cursor:pointer">
-              <input type="file" accept=".pdf,application/pdf" style="position:fixed;top:-1000px;left:-1000px;opacity:0;pointer-events:none" class="ph-file2">
-              📂 Mở PDF 2 (Ver2)
-            </label>
+            <button class="btn primary ph-btn-v1" type="button">📂 Mở PDF 1 (Ver1)</button>
+            <button class="btn ph-btn-v2" type="button">📂 Mở PDF 2 (Ver2)</button>
           </div>
           <div class="ph-hint">💡 Phím tắt: <b>Ctrl + O</b> (PDF 1) · <b>Ctrl + Shift + O</b> (PDF 2)</div>
         </div>
@@ -67,15 +61,13 @@ export class Viewer {
     this.svgHl = q('svg.hl-layer'); this.svgOv = q('svg.ov-layer');
     this.labelsEl = q('.labels'); this.selBox = q('.sel-box');
     this.badge = q('.badge'); this.ph = q('.placeholder'); this.spinner = q('.spinner');
-    this.ph.querySelector('.ph-file1')?.addEventListener('change', e => {
-      const f = e.target.files?.[0];
-      if (f) (window.app || window.pdfqa)?.openDoc?.(1, f);
-      e.target.value = '';
+    this.ph.querySelector('.ph-btn-v1')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelector('#btn-open1')?.click();
     });
-    this.ph.querySelector('.ph-file2')?.addEventListener('change', e => {
-      const f = e.target.files?.[0];
-      if (f) (window.app || window.pdfqa)?.openDoc?.(2, f);
-      e.target.value = '';
+    this.ph.querySelector('.ph-btn-v2')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelector('#btn-open2')?.click();
     });
     this._lastSize = [this.el.clientWidth, this.el.clientHeight];
     new ResizeObserver(() => this._onResize()).observe(this.el);
